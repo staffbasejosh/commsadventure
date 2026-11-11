@@ -21,6 +21,18 @@ const ROLES = {
   packer:     { label: 'PACKER',     value: 1, weight: 2, coat: '#3f9b5a', shirt: '#3f9b5a', pants: '#37474f', hat: 'cap', vest: '#ffd23f', skin: '#e0b48a', hair: '#3a2a1e', icon: '#3f9b5a' },
   driver:     { label: 'DRIVER',     value: 1, weight: 2, coat: '#e8742a', shirt: '#e8742a', pants: '#2b2b33', hat: 'hard', vest: '#ffd23f', skin: '#8d5524', hair: '#202020', icon: '#e8742a' },
   supervisor: { label: 'SHIFT SUPERVISOR', value: 3, weight: 1, coat: '#f4f6f8', shirt: '#f4f6f8', pants: '#3b4a63', hat: 'hard', vest: '#ff9f1c', prop: 'clipboard', lanyard: '#f2b705', skin: '#c68642', hair: '#202020', icon: '#f2b705', high: true, lead: true },
+  // Finance (bank branch) cast (cleaner is shared)
+  teller:     { label: 'TELLER',     value: 1, weight: 3, coat: '#1f4e79', shirt: '#ffffff', pants: '#26364d', tie: '#c9a227', lanyard: '#c9a227', skin: '#f1c9a0', hair: '#5a3825', icon: '#1f7a5a' },
+  guard:      { label: 'SECURITY GUARD', value: 1, weight: 2, coat: '#2b2f3a', shirt: '#ffffff', pants: '#1b1e27', hat: 'cap', skin: '#8d5524', hair: '#202020', icon: '#46607a' },
+  loans:      { label: 'HOME LOAN SPECIALIST', value: 1, weight: 2, coat: '#7a3b2e', shirt: '#ffffff', pants: '#3b4a63', glasses: '#2b2b33', prop: 'clipboard', lanyard: '#1f7a5a', skin: '#c68642', hair: '#202020', icon: '#c0603a' },
+  advisor:    { label: 'FINANCIAL ADVISER', value: 1, weight: 2, coat: '#2f4a3f', shirt: '#e8f4ee', pants: '#26364d', tie: '#1f7a5a', prop: 'briefcase', skin: '#f1c9a0', hair: '#a0522d', icon: '#2f9d62' },
+  manager:    { label: 'BRANCH MANAGER', value: 3, weight: 1, coat: '#1a1f3a', shirt: '#ffffff', pants: '#1a1f3a', tie: '#c9a227', glasses: '#222222', prop: 'clipboard', lanyard: '#f2b705', skin: '#c68642', hair: '#b9bcc4', icon: '#f2b705', high: true, lead: true },
+  // Transport (airport) cast (cleaner is shared)
+  agent:      { label: 'CHECK-IN AGENT', value: 1, weight: 3, coat: '#1f4e79', shirt: '#ffffff', pants: '#26364d', tie: '#e8742a', hat: 'headset', lanyard: '#e8742a', skin: '#f1c9a0', hair: '#5a3825', icon: '#2b6cb0' },
+  crew:       { label: 'CABIN CREW', value: 1, weight: 2, coat: '#c0392b', shirt: '#ffffff', pants: '#7a2218', tie: '#f2b705', skin: '#c68642', hair: '#202020', icon: '#c0392b' },
+  handler:    { label: 'BAGGAGE HANDLER', value: 1, weight: 2, coat: '#e8742a', shirt: '#e8742a', pants: '#2b2b33', hat: 'hard', vest: '#ffd23f', skin: '#8d5524', hair: '#202020', icon: '#e8742a' },
+  officer:    { label: 'SECURITY OFFICER', value: 1, weight: 2, coat: '#2b2f3a', shirt: '#ffffff', pants: '#1b1e27', hat: 'cap', lanyard: '#1f4e79', skin: '#e0b48a', hair: '#3a2a1e', icon: '#46607a' },
+  captain:    { label: 'CAPTAIN', value: 3, weight: 1, coat: '#14213d', shirt: '#ffffff', pants: '#14213d', tie: '#c9a227', hat: 'cap', prop: 'briefcase', lanyard: '#c9a227', skin: '#c68642', hair: '#b9bcc4', icon: '#f2b705', high: true, lead: true },
 };
 
 class NPC extends Enemy {
@@ -106,10 +118,18 @@ function drawRoleIcon(ctx, role, cx, cy, color, value) {
     case 'welder': ctx.beginPath(); ctx.moveTo(0, -3); ctx.lineTo(0.9, -0.6); ctx.lineTo(3, 0); ctx.lineTo(0.9, 0.8); ctx.lineTo(0, 3); ctx.lineTo(-0.9, 0.8); ctx.lineTo(-3, 0); ctx.lineTo(-0.9, -0.6); ctx.closePath(); ctx.fill(); break;
     case 'packer': ctx.fillRect(-2.6, -1.6, 5.2, 3.6); ctx.fillStyle = color; ctx.fillRect(-0.4, -1.6, 0.8, 3.6); break;
     case 'driver': ctx.fillRect(-2.8, -0.4, 4.6, 2); ctx.fillRect(1.4, -2.8, 1.1, 4.8); ctx.beginPath(); ctx.arc(-1.6, 2.1, 0.8, 0, Math.PI * 2); ctx.arc(0.6, 2.1, 0.8, 0, Math.PI * 2); ctx.fill(); break;
-    case 'nurseLead': case 'supervisor': Gfx.text(ctx, String(value), 0, -2.6, { font: 'body', bold: true, size: 6.4, color: '#4a3200', align: 'center', raw: true }); break;
+    case 'teller': Gfx.text(ctx, '$', 0, -3, { font: 'body', bold: true, size: 6.6, color: '#ffffff', align: 'center', raw: true }); break;
+    case 'guard': ctx.beginPath(); ctx.moveTo(-2.4, -2.6); ctx.lineTo(2.4, -2.6); ctx.lineTo(2.4, 0.4); ctx.lineTo(0, 3); ctx.lineTo(-2.4, 0.4); ctx.closePath(); ctx.fill(); break;
+    case 'loans': ctx.beginPath(); ctx.moveTo(-3, 0.4); ctx.lineTo(0, -2.8); ctx.lineTo(3, 0.4); ctx.closePath(); ctx.fill(); ctx.fillRect(-2, 0.4, 4, 2.6); ctx.fillStyle = color; ctx.fillRect(-0.6, 1.2, 1.2, 1.8); break;
+    case 'advisor': ctx.fillRect(-2.8, 0.6, 1.6, 2.2); ctx.fillRect(-0.8, -1, 1.6, 3.8); ctx.fillRect(1.2, -2.8, 1.6, 5.6); break;
+    case 'agent': ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(-2.6, 0.2); ctx.lineTo(-0.8, 2.2); ctx.lineTo(2.8, -2.2); ctx.stroke(); break;
+    case 'crew': ctx.beginPath(); ctx.moveTo(-3, 0); ctx.lineTo(3, -2.6); ctx.lineTo(1, 2.8); ctx.lineTo(0, 0.6); ctx.closePath(); ctx.fill(); break;
+    case 'handler': ctx.fillRect(-2.8, -1.2, 5.6, 4); ctx.fillRect(-1.2, -2.8, 2.4, 1.2); ctx.fillStyle = color; ctx.fillRect(-0.4, -1.2, 0.8, 4); break;
+    case 'officer': ctx.beginPath(); ctx.moveTo(-2.4, -2.6); ctx.lineTo(2.4, -2.6); ctx.lineTo(2.4, 0.4); ctx.lineTo(0, 3); ctx.lineTo(-2.4, 0.4); ctx.closePath(); ctx.fill(); break;
+    case 'nurseLead': case 'supervisor': case 'manager': case 'captain': Gfx.text(ctx, String(value), 0, -2.6, { font: 'body', bold: true, size: 6.4, color: '#4a3200', align: 'center', raw: true }); break;
   }
   ctx.restore();
-  if (value > 1 && role !== 'nurseLead' && role !== 'supervisor') Gfx.text(ctx, 'x' + value, cx + 7, cy - 2, { size: 5.4, bold: true, color: '#ffe27a', shadow: '#090D48', raw: true });
+  if (value > 1 && role !== 'nurseLead' && role !== 'supervisor' && role !== 'manager' && role !== 'captain') Gfx.text(ctx, 'x' + value, cx + 7, cy - 2, { size: 5.4, bold: true, color: '#ffe27a', shadow: '#090D48', raw: true });
 }
 
 const Attack = {
@@ -157,8 +177,9 @@ const Attack = {
     L.attackT += dt;
     L.spawnT -= dt;
     if (L.spawnT <= 0) {
-      L.spawnT = A.SPAWN_INTERVAL;
-      if (this.unreached(L).length < A.MAX_ACTIVE) this.spawn(L);
+      const sc = L.data.npcScale || 1;   // levels can thin their cast (0.85 = about 15% fewer colleagues)
+      L.spawnT = A.SPAWN_INTERVAL / sc;
+      if (this.unreached(L).length < Math.round(A.MAX_ACTIVE * sc)) this.spawn(L);
     }
     // endless levels: colleagues generated ahead count once you reach them; far-away unreached ones fade out
     const pcx = L.player.cx;

@@ -14,6 +14,10 @@
         obstacle(ch, x, range, hard, tunnel)   pushes a ground obstacle entity onto ch.ents
         firstObstacle(first)                   the obstacle placed in the hand-built first chunk
         startSign   text of the sign by the start
+        coinRate    (optional, default 1) multiplier on how often coin trails appear
+        npcScale    (optional, default 1) chance each generated colleague is kept (0.85 = about 15% fewer)
+        corridorGap (optional) [min, max] stretches between corridor 1 and 2 (default C.ATTACK.CORRIDOR_GAP)
+        postHr      (optional) { extra } tougher obstacles, plus this many extra ones per bay, once the HR Manager is in play
         tunnelNames [[name, subtitle], [name, subtitle]]   alternate the two corridors
    ========================================================================== */
 const Endless = (() => {
@@ -41,22 +45,23 @@ const Endless = (() => {
   const clearAbove = (g, x, y) => x >= 0 && x < CW && y >= 2 && (g[y][x] === '-' || SOL.includes(g[y][x])) &&
     !SOL.includes(g[y - 1][x]) && g[y - 1][x] !== '-' && !SOL.includes(g[y - 2][x]);
   const groundOk = (g, x) => x >= 1 && x < CW - 1 && [x - 1, x, x + 1].every(cx => g[15][cx] === '#' && !SOL.includes(g[14][cx]) && !SOL.includes(g[13][cx]));
-  const addNpc = (ch, x, y, mode, role) => { if (clearAbove(ch.g, x, y)) ch.npcs.push({ role: role || pick(ROLE_POOL), x: ch.c0 + x, y, mode, range: 2 }); };
+  const addNpc = (ch, x, y, mode, role) => { if (cfg.npcScale && Math.random() > cfg.npcScale) return; if (clearAbove(ch.g, x, y)) ch.npcs.push({ role: role || pick(ROLE_POOL), x: ch.c0 + x, y, mode, range: 2 }); };
   const addSp = (ch, x, y) => { if (clearAbove(ch.g, x, y)) ch.sp.push({ x: ch.c0 + x, y, kind: y === 15 ? 'ground' : 'high' }); };
   // A ground obstacle (level-specific: trolleys, forklifts, union reps...). hard = a tougher one is welcome here.
   const addObstacle = (ch, x, range, hard, tunnel) => {
     if (!groundOk(ch.g, x)) return;
-    cfg.obstacle(ch, x, range, !!hard, !!tunnel);
+    cfg.obstacle(ch, x, range, !!hard || (afterHr && !!cfg.postHr), !!tunnel);
   };
 
   // One bay = 16 columns; b0 is its first column. d (0..1) is the difficulty: shorter platforms, fewer coins,
   // and more obstacles up on the platforms the further you get.
+  let afterHr = false;   // true once the second corridor is behind us (the HR Manager is in play)
   let coinAcc = 0;   // carries the fractional coin chance across trails so the thinning is smooth, not lumpy
   function bay(ch, b0, type, pit, d, k) {
     const { put, plat, room, g } = ch;
     // coins buy time, so they thin out slowly over ~18 stretches (never to zero): both how often a trail appears and how long it is
     const cd = Math.min(1, Math.max(0, (k - 1) / 18));
-    const cg = (c, r, n) => { coinAcc += 0.9 - 0.5 * cd; if (coinAcc >= 1) { coinAcc -= 1; put(c, r, 'c'.repeat(Math.max(1, Math.round(n * (1 - 0.35 * cd))))); } };
+    const cg = (c, r, n) => { coinAcc += (0.9 - 0.5 * cd) * (cfg.coinRate || 1); if (coinAcc >= 1) { coinAcc -= 1; put(c, r, 'c'.repeat(Math.max(1, Math.round(n * (1 - 0.35 * cd))))); } };
     // vending machines (2x2, solid) standing on the upper platforms: hop over them. Trolleys stay on the floor.
     const platObs = (x0, x1, row) => {
       if (d < 0.08 || x1 - x0 < 4) return;
@@ -105,6 +110,14 @@ const Endless = (() => {
       addObstacle(ch, b0 + 9, 1, true);
       addNpc(ch, b0 + 14, 15, 'stand');
     }
+    if (afterHr && cfg.postHr) {   // after the HR Manager arrives the floor gets busier
+      for (let placed = 0, tries = 0; placed < (cfg.postHr.extra || 1) && tries < 10; tries++) {
+        const x = b0 + pick([2, 3, 5, 7, 9, 11, 13]), n0 = ch.ents.length;
+        if (ch.ents.some(en => Math.abs((en.x - ch.c0) - x) < 4)) continue;
+        addObstacle(ch, x, 1, true);
+        if (ch.ents.length > n0) placed++;
+      }
+    }
     for (const x of [b0, b0 + 15]) addSp(ch, x, 15);
   }
 
@@ -132,7 +145,8 @@ const Endless = (() => {
 
   function generate(k) {
     if (k <= 1) { coinAcc = 0; nextTunnel = rnd(5, 6); tunnelCount = 0; }
-    if (tunnelCount < 2 && k >= nextTunnel) { nextTunnel = k + rnd(...C.ATTACK.CORRIDOR_GAP); return tunnelChunk(k, Math.min(1, Math.max(0, (k - 1) / 9))); }   // two corridors only
+    afterHr = tunnelCount >= 2;
+    if (tunnelCount < 2 && k >= nextTunnel) { nextTunnel = k + rnd(...(cfg.corridorGap || C.ATTACK.CORRIDOR_GAP)); return tunnelChunk(k, Math.min(1, Math.max(0, (k - 1) / 9))); }   // two corridors only
     const ch = newChunk(k);
     const pick3 = () => { const r = Math.random(); return r < 0.45 ? 'tower' : r < 0.75 ? 'twin' : 'hall'; };
     const d = Math.min(1, Math.max(0, (k - 1) / 9));     // 0 at the start, full difficulty ~10 chunks (~320 tiles) in

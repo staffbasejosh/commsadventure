@@ -122,7 +122,7 @@ class Union extends Enemy {
   constructor(L, def) {
     const n = def.count || 3;
     super(L, def, n * 18 - 6, 15);
-    this.count = n; this.signs = def.signs || ['FAIR\nROSTERS!', 'MORE\nBREAKS!'];
+    this.count = n; this.theme = def.theme || 'union'; this.signs = def.signs || ['FAIR\nROSTERS!', 'MORE\nBREAKS!'];
     this.chantT = rand(1, 3); this.chant = null;
     this.x = def.x * C.TILE;
   }
@@ -133,24 +133,26 @@ class Union extends Enemy {
     this.chantT -= dt;
     if (this.chantT <= 0) {
       this.chantT = rand(3, 6);
-      if (this.near) this.chant = { text: ['FAIR ROSTERS!', 'MORE BREAKS!', 'NO BREAKS, NO PEACE... KIDDING!', 'WE LOVE COMMS (BUT STILL)!'][Math.floor(Math.random() * 4)], t: 2.2 };
+      if (this.near) this.chant = { text: (this.theme === 'queue' ? ['IS THIS THE QUEUE?', 'JUST ONE QUICK THING!', 'I HAVE A QUESTION...', 'TICKET NUMBER 47?'] : ['FAIR ROSTERS!', 'MORE BREAKS!', 'NO BREAKS, NO PEACE... KIDDING!', 'WE LOVE COMMS (BUT STILL)!'])[Math.floor(Math.random() * 4)], t: 2.2 };
     }
   }
   onTouch(p) {
     const L = this.L;
-    if (L.isStomp(p, this)) { p.stompBounce(); p.y = this.y - p.h; Sound.play('bump'); this.chant = { text: 'HEY, MIND THE SIGNS!', t: 1.4 }; return; }
+    if (L.isStomp(p, this)) { p.stompBounce(); p.y = this.y - p.h; Sound.play('bump'); this.chant = { text: this.theme === 'queue' ? 'NO PUSHING IN!' : 'HEY, MIND THE SIGNS!', t: 1.4 }; return; }
     // side contact: always bounce back; costs integrity if not in invulnerability frames
     const away = p.cx < this.x + this.w / 2 ? -1 : 1;
     p.vx = away * C.PLAYER.KNOCKBACK_X; p.vy = Math.min(p.vy, -90);
     p.x += away * 2;
-    if (p.invuln <= 0 && p.power.sponsor <= 0) { L.hurtPlayer(C.INTEGRITY.UNION_HIT, this.x + this.w / 2); this.chant = { text: 'SORRY! SOLIDARITY!', t: 1.4 }; }
+    if (p.invuln <= 0 && p.power.sponsor <= 0) { L.hurtPlayer(C.INTEGRITY.UNION_HIT, this.x + this.w / 2); this.chant = { text: this.theme === 'queue' ? 'EXCUSE ME! QUEUE!' : 'SORRY! SOLIDARITY!', t: 1.4 }; }
   }
   draw(ctx, camX, time) {
     const sx = this.x - camX; if (sx < -60 || sx > C.VIEW_W + 60) return;
     for (let i = 0; i < this.count; i++) {
       const rx = sx + i * 18, bob = Math.round(Math.sin(time * 3 + i * 1.7)), face = i % 2 ? -1 : 1;
       Gfx.person(ctx, rx + 1, this.y - 1, { face, hair: ['#3a2a1e', '#a0522d', '#202020'][i % 3], skin: ['#f1c9a0', '#c68642', '#8d5524'][i % 3],
-        coat: '#1f4e79', sleeve: '#1f4e79', shirt: '#ffffff', vest: '#ff9f1c', pants: '#3b4a63', hat: i === 1 ? 'hard' : null, state: 'stand' });
+        ...(this.theme === 'queue'
+          ? { coat: ['#6b5b95', '#8a6b4a', '#3f6f5f'][i % 3], sleeve: ['#6b5b95', '#8a6b4a', '#3f6f5f'][i % 3], shirt: '#ffffff', pants: '#3b4a63', prop: i === 1 ? 'envelope' : 'briefcase', state: 'stand' }
+          : { coat: '#1f4e79', sleeve: '#1f4e79', shirt: '#ffffff', vest: '#ff9f1c', pants: '#3b4a63', hat: i === 1 ? 'hard' : null, state: 'stand' }) });
       if (i % 2 === 0) { // outer reps hold the placards (staggered so they never overlap)
         const lift = i === 0 ? 20 : 27;
         Gfx.px(ctx, '#5b3a21', rx + 5, this.y - lift + bob, 1, lift);
@@ -158,7 +160,7 @@ class Union extends Enemy {
       }
     }
     if (this.chant) Gfx.bubble(ctx, this.chant.text, sx + this.w / 2, this.y - 44);
-    else if (this.near) label(ctx, 'UNION REP', sx + this.w / 2, this.y - 52, '#ffd9a0');
+    else if (this.near) label(ctx, this.theme === 'queue' ? 'CUSTOMER QUEUE' : 'UNION REP', sx + this.w / 2, this.y - 52, '#ffd9a0');
   }
 }
 
@@ -259,7 +261,7 @@ class Forklift extends Enemy {
 class Trolley extends Enemy {
   constructor(L, def) {
     const v = def.variant || 'gurney';
-    super(L, def, v === 'gurney' ? 30 : v === 'pallet' ? 28 : 20, v === 'gurney' ? 14 : v === 'pallet' ? 16 : 18);
+    super(L, def, v === 'gurney' ? 30 : v === 'pallet' ? 28 : v === 'luggage' ? 26 : v === 'cashcart' ? 24 : 20, v === 'gurney' ? 14 : v === 'pallet' ? 16 : v === 'chair' || v === 'luggage' ? 22 : 18);
     this.variant = v; this.say = null;
   }
   update(dt) {
@@ -290,6 +292,20 @@ class Trolley extends Enemy {
     } else if (this.variant === 'boxcart') {   // wheeled cage trolley stacked with boxes
       R('#78909c', 0, 1, 1, 14); R('#78909c', 19, 1, 1, 14); R('#9aa7b0', 0, 12, 20, 2); R('#37474f', 1, 14, 4, 4); R('#37474f', 15, 14, 4, 4);
       R('#c89b64', 2, 4, 8, 8); R('#e8c28f', 2, 4, 8, 1); R('#a87a45', 5, 4, 1, 8); R('#d9a66b', 11, 6, 7, 6); R('#a87a45', 14, 6, 1, 6); R('#e8e0c8', 4, 0, 5, 4); R('#c0392b', 5, 1, 3, 1);
+    } else if (this.variant === 'luggage') {   // airport luggage trolley: wire cage on wheels, stacked suitcases, push handle
+      R('#9aa7b0', 0, 3, 1, 14); R('#9aa7b0', 25, 0, 1, 17); R('#cfd6db', 0, 0, 5, 1); R('#9aa7b0', 0, 17, 26, 2); R('#37474f', 2, 19, 4, 3); R('#37474f', 19, 19, 4, 3);
+      R('#1f4e79', 2, 8, 12, 9); R('#2b6cb0', 2, 8, 12, 1); R('#c9a227', 7, 8, 2, 1); R('#e8742a', 14, 10, 9, 7); R('#f59a5b', 14, 10, 9, 1); R('#8a4a1a', 17, 10, 1, 7); R('#2f9d62', 5, 3, 8, 5); R('#1f7a5a', 5, 3, 8, 1);
+    } else if (this.variant === 'cabin') {     // cabin service cart: silver drinks trolley with drawers
+      R('#cfd6db', 0, 2, 20, 14); R('#e8eef3', 0, 2, 20, 2); R('#9aa7b0', 0, 15, 20, 1); R('#7b8a97', 2, 6, 7, 3); R('#7b8a97', 11, 6, 7, 3); R('#7b8a97', 2, 10, 7, 3); R('#7b8a97', 11, 10, 7, 3);
+      R('#2b6cb0', 6, 0, 3, 2); R('#c0392b', 12, 0, 3, 2); R('#37474f', 1, 16, 4, 2); R('#37474f', 15, 16, 4, 2); R('#78909c', 19, 0, 1, 4);
+    } else if (this.variant === 'chair') {      // rolling office chair (five-star base, gas lift, padded seat and back)
+      R('#2f3a44', 1, 20, 18, 2); R('#37474f', 0, 20, 3, 2); R('#37474f', 17, 20, 3, 2); R('#37474f', 8, 20, 4, 2);
+      R('#78909c', 9, 13, 2, 7); R('#1f4e79', 2, 9, 16, 4); R('#2b6cb0', 2, 9, 16, 1); R('#16395a', 2, 12, 16, 1);
+      R('#78909c', 0, 9, 2, 3); R('#1f4e79', 3, 0, 5, 10); R('#2b6cb0', 3, 0, 5, 1); R('#16395a', 7, 1, 1, 9);
+    } else if (this.variant === 'cashcart') {  // cash-in-transit trolley with locked cash boxes and a money bag
+      R('#78909c', 0, 1, 1, 15); R('#78909c', 23, 1, 1, 15); R('#9aa7b0', 0, 13, 24, 2); R('#37474f', 2, 15, 4, 3); R('#37474f', 18, 15, 4, 3);
+      R('#2f3a44', 2, 5, 9, 8); R('#c9a227', 2, 8, 9, 1); R('#f2d46b', 6, 8, 1, 2); R('#3b4a63', 12, 7, 9, 6); R('#c9a227', 12, 9, 9, 1);
+      R('#2f9d62', 5, 0, 7, 5); R('#1f7a5a', 5, 0, 7, 1); R('#f2d46b', 7, 1, 3, 1); R('#1f7a5a', 7, 4, 3, 1);
     } else if (this.variant === 'meds') {      // drawer cart
       R('#2d8f87', 0, 2, 20, 12); R('#5fb8b0', 0, 2, 20, 2); R('#1d6b65', 0, 13, 20, 1);
       R('#e8f6f4', 2, 5, 16, 3); R('#e8f6f4', 2, 9, 16, 3); R('#37474f', 9, 6, 2, 1); R('#37474f', 9, 10, 2, 1);
@@ -302,7 +318,7 @@ class Trolley extends Enemy {
     }
     ctx.restore();
     if (this.say) Gfx.bubble(ctx, this.say.text, sx + this.w / 2, y - 6);
-    else if (this.near) label(ctx, this.variant === 'gurney' ? 'TROLLEY' : this.variant === 'meds' ? 'MEDS CART' : this.variant === 'pallet' ? 'PALLET JACK' : this.variant === 'boxcart' ? 'BOX TROLLEY' : 'LINEN CART', sx + this.w / 2, y - 12, '#bfe3f5');
+    else if (this.near) label(ctx, this.variant === 'gurney' ? 'TROLLEY' : this.variant === 'meds' ? 'MEDS CART' : this.variant === 'pallet' ? 'PALLET JACK' : this.variant === 'boxcart' ? 'BOX TROLLEY' : this.variant === 'chair' ? 'OFFICE CHAIR' : this.variant === 'cashcart' ? 'CASH TROLLEY' : this.variant === 'luggage' ? 'LUGGAGE TROLLEY' : this.variant === 'cabin' ? 'SERVICE CART' : 'LINEN CART', sx + this.w / 2, y - 12, '#bfe3f5');
   }
 }
 

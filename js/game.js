@@ -239,7 +239,8 @@ class Level {
     } else if (ch !== '.') { this.bumps[key] = 0.1; }
   }
 
-  coinText() { return this.attack ? '+' + C.ATTACK.COIN_BONUS + 's' : '+1'; }
+  coinBonus() { return this.data.coinBonus !== undefined ? this.data.coinBonus : C.ATTACK.COIN_BONUS; }
+  coinText() { return this.attack ? '+' + this.coinBonus() + 's' : '+1'; }
 
   // ---------------------------------------------------------------- player damage
   isStomp(p, e) { return p.vy > 0 && p.prevBottom <= e.y + 7 && !p.crouchSkip; }
@@ -520,7 +521,7 @@ const Game = {
   addTime(s) { this.timeLeft += s; },
   addCoin() {
     this.coins++;
-    if (this.levelData.mode === 'attack') { this.addTime(C.ATTACK.COIN_BONUS); return; }
+    if (this.levelData.mode === 'attack') { this.addTime(this.levelData.coinBonus !== undefined ? this.levelData.coinBonus : C.ATTACK.COIN_BONUS); return; }
     if (this.coins % C.INTEGRITY.COINS_PER_BOOST === 0 && this.integrity < 100) {
       this.integrity = Math.min(100, this.integrity + C.INTEGRITY.COIN_BOOST);
       this.toastMsg('ENGAGEMENT BOOST! +' + C.INTEGRITY.COIN_BOOST + '% INTEGRITY', '#1d8a4a');

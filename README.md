@@ -11,6 +11,9 @@ Two levels ship:
   carts slow you, closed rooms are solid blocks you hop over (tile `R`), and pits are out-of-service lifts.
   Coins add 0.5s. The CEO appears after you leave the first corridor/lounge (placard: All Staff Update / Crisis Comms / Monthly Finance Update) and an HR Manager after the second (New Benefits / Welcome New Starters / Policy Updates). They step out just ahead of you (`C.ATTACK.CHASER_AHEAD_TILES`) and run at you head-on. They steal colleagues they reach first, re-roll their message on each steal, and stun you for 2s if they catch you. There are exactly two corridors (about 6-7 stretches apart); after the second there are none. Enter on the end screen replays instantly.
 * **Manufacturing** is the same 60-second round in an endless factory (it shares the generator, `js/levels/endless.js`). Colleagues are operators, welders, packers, drivers and cleaners; **Shift Supervisors** count triple and add 3s. Obstacles are pallet jacks, box trolleys, shipping containers and shelving, plus the factory extras: **forklifts** and **union reps**; all of them slow you down and none score. The two choke-point corridors are the **Loading Bay** and the **Break Room**, with the CEO and HR Manager chasing after them, exactly as in Healthcare.
+* **Finance** is the same 60-second round in an endless bank branch (same generator). Colleagues are tellers, security guards, home loan specialists, financial advisers and cleaners; **Branch Managers** count triple and add 3s. Obstacles are **ATMs**, **vault safes**, rolling **office chairs** and **cash trolleys**, plus **customer queues**; all slow you down and none score. Both choke-point corridors are the **Staff Break Room**, with the CEO and HR Manager chasing after them. Noticeboards use `C.NOTICES_FIN`.
+* **Transport** is the same 60-second round in an endless airport terminal (same generator). Colleagues are check-in agents, cabin crew, baggage handlers, security officers and cleaners; **Captains** count triple and add 3s. Obstacles are **luggage trolleys** and cabin service carts, baggage containers and check-in kiosks, plus **union reps**. Both choke-point corridors are a **Plane Cabin** (oval windows, overhead lockers), with the CEO and HR Manager chasing after them. Noticeboards use `C.NOTICES_AIR`.
+* **All four levels share the same tuning**: coins are worth 1s but appear about 40% less often, about 15% fewer colleagues appear, the second corridor (and the HR Manager) arrives sooner, and once the HR Manager is in play the floor gets busier (around 70% more obstacles). These are per-level settings: `coinBonus` and `npcScale` in the level data, `coinRate`, `npcScale`, `corridorGap` and `postHr` in the `Endless.make({...})` config.
 
 Finance and Transport are placeholders.
 
@@ -82,6 +85,8 @@ js/enemies.js         managers, union reps, patients, pagers, assistants, nurse,
 js/game.js            Level (tiles, collision, items, barriers), state machine, camera, fixed-step loop
 js/levels/endless.js        the shared endless map generator (chunks, tiers, choke-point corridors)
 js/levels/manufacturing.js   The endless factory (cast, obstacles, theme and art)
+js/levels/finance.js   The endless bank branch (cast, obstacles, theme and art)
+js/levels/transport.js   The endless airport with plane-cabin corridors (cast, obstacles, theme and art)
 js/levels/healthcare.js   The endless hospital (cast, obstacles, theme and art)
 dev/bot.js            optional autopilot used to verify the level is completable
 ```

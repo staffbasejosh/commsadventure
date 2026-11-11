@@ -30,6 +30,10 @@
     signColors: ['#2d8f87', '#c0392b', '#5b7fa6', '#2f9d62', '#46607a'],
     obstacle: (ch, x, range) => ch.ents.push({ type: 'trolley', variant: pick(['gurney', 'meds', 'linen']), x: ch.c0 + x, range }),
     firstObstacle: first => first.ents.push({ type: 'trolley', variant: 'gurney', x: 29, range: 1 }),
+    coinRate: 0.6,            // fewer coin trails (each coin is worth a full second)
+    npcScale: 0.85,           // about 15% fewer colleagues
+    corridorGap: [4, 5],      // the second corridor (and the HR Manager) arrives sooner...
+    postHr: { extra: 2 },     // ...and the floor gets busier after that
     startSign: 'MAIN ENTRANCE',
     tunnelNames: [['Staff Corridor', 'Crowded: push through'], ['Staff Lounge', 'Break time: wade through']],
   });
@@ -363,6 +367,8 @@
     id: 'healthcare',
     title: 'Healthcare',
     message: 'Score attack',
+    coinBonus: 1,    // seconds per coin
+    npcScale: 0.85,  // about 15% fewer colleagues spawn during the round
     route: ['Main Entrance', 'Corridors', 'Admissions', 'Radiology', 'Pharmacy', 'Ward 4'],
     hud: C.HUD_H,    // reserved header strip (the world is drawn below it)
     rolePool: ['nurse', 'doctor', 'porter', 'pharmacist', 'cleaner', 'nurseLead'],
@@ -390,7 +396,6 @@
     // Colleagues present when the round starts (the first is a few steps from the start).
     npcStart: [
       { role: 'nurse', x: 12, y: 15, mode: 'stand' },
-      { role: 'cleaner', x: 19, y: 12, mode: 'stand' },
       { role: 'doctor', x: 24, y: 15, mode: 'roam', range: 3 },
       { role: 'nurseLead', x: 23, y: 9, mode: 'stand' },
       { role: 'porter', x: 28, y: 12, mode: 'stand' },

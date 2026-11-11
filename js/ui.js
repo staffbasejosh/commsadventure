@@ -450,10 +450,15 @@ const UI = (() => {
       case 'finance': // ascending bars + coin
         rr(ctx, -11, 3, 5.4, 8, 1.2, color); rr(ctx, -4, -3, 5.4, 14, 1.2, color); rr(ctx, 3, -10, 5.4, 21, 1.2, color);
         break;
-      case 'transport': // truck
-        rr(ctx, -12, -8, 14, 12, 2, color); rr(ctx, 4, -3, 8, 7, 2, color);
-        ctx.beginPath(); ctx.arc(-6, 6.5, 3, 0, Math.PI * 2); ctx.arc(7, 6.5, 3, 0, Math.PI * 2); ctx.fill();
+      case 'transport': { // plane (top view, nose up-right)
+        ctx.rotate(Math.PI / 4); ctx.scale(0.92, 0.92);
+        rr(ctx, -2, -12, 4, 23, 2, color);                                  // fuselage
+        ctx.beginPath(); ctx.moveTo(-1.6, -3); ctx.lineTo(-12, 5); ctx.lineTo(-12, 8); ctx.lineTo(-1.6, 3.5); ctx.closePath(); ctx.fill();   // left wing
+        ctx.beginPath(); ctx.moveTo(1.6, -3); ctx.lineTo(12, 5); ctx.lineTo(12, 8); ctx.lineTo(1.6, 3.5); ctx.closePath(); ctx.fill();       // right wing
+        ctx.beginPath(); ctx.moveTo(-1.6, 7.5); ctx.lineTo(-6, 11.5); ctx.lineTo(-6, 13.5); ctx.lineTo(-1.6, 11); ctx.closePath(); ctx.fill(); // left tail
+        ctx.beginPath(); ctx.moveTo(1.6, 7.5); ctx.lineTo(6, 11.5); ctx.lineTo(6, 13.5); ctx.lineTo(1.6, 11); ctx.closePath(); ctx.fill();     // right tail
         break;
+      }
     }
     ctx.restore();
   }
@@ -616,14 +621,14 @@ const UI = (() => {
     backdrop(ctx, g, 0.74);
     Gfx.card(ctx, 30, 14, 420, 244);
     screenHeader(ctx, 'CHOOSE LEVEL', [['Pick your ', DB], ['industry', SB]]);
-    T(ctx, 'Every industry has its own cast, its own obstacles and its own theme.', 50, 70, { size: 7.4, color: SOFT });
+    T(ctx, 'Every industry has its own challenges. Select your scene and become the hero that saves the day!', 50, 70, { size: 7.4, color: SOFT });
     C.LEVEL_LIST.forEach((lv, i) => {
       const r = lvlCard(i), sel = g.levelIndex === i, ready = !!LEVELS[lv.id];
       if (sel) Gfx.card(ctx, r.x, r.y, r.w, r.h, { r: 10, blur: 9, stroke: ready ? SB : B.gray });
       else rr(ctx, r.x, r.y, r.w, r.h, 10, ready ? '#ffffff' : B.light, B.mid, 0.9);
       levelTile(ctx, lv.id, r.x + 10, r.y + 11, 40, !ready);
-      T(ctx, lv.title, r.x + 60, r.y + 17, { scale: 2, size: 12, color: ready ? DB : '#7a7c9c' });
-      T(ctx, ready ? (LEVELS[lv.id].message || lv.tag) : 'Coming soon', r.x + 60, r.y + 36, { size: 6.8, raw: true, color: ready ? SOFT : B.gray });
+      T(ctx, lv.title, r.x + 60, r.y + (ready ? 25 : 17), { scale: 2, size: 12, color: ready ? DB : '#7a7c9c' });
+      if (!ready) T(ctx, 'Coming soon', r.x + 60, r.y + 36, { size: 6.8, raw: true, color: B.gray });
       if (ready) Gfx.arrow(ctx, r.x + r.w - 16 + (sel ? Math.round(Math.sin(g.menuTime * 6) * 1.2 + 1) : 0), r.y + r.h - 12, sel ? OR : B.gray, 6);
       else lock(ctx, r.x + r.w - 17, r.y + r.h - 19, B.gray);
     });

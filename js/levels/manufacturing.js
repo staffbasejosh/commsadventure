@@ -35,6 +35,10 @@
       else ch.ents.push({ type: 'trolley', variant: pick(['pallet', 'boxcart']), x: x0, range });
     },
     firstObstacle: first => first.ents.push({ type: 'trolley', variant: 'pallet', x: 29, range: 1 }),
+    coinRate: 0.6,            // fewer coin trails (each coin is worth a full second)
+    npcScale: 0.85,           // about 15% fewer colleagues
+    corridorGap: [4, 5],      // the second corridor (and the HR Manager) arrives sooner...
+    postHr: { extra: 2 },     // ...and the floor gets busier after that
     startSign: 'LOADING DOCK',
     tunnelNames: [['Loading Bay', 'Forklift traffic: push through'], ['Break Room', 'Break time: wade through']],
   });
@@ -350,6 +354,8 @@
     id: 'manufacturing',
     title: 'Manufacturing',
     message: 'Score attack',
+    coinBonus: 1,    // seconds per coin
+    npcScale: 0.85,  // about 15% fewer colleagues spawn during the round
     hud: C.HUD_H,    // reserved header strip (the world is drawn below it)
     rolePool: ['operator', 'welder', 'packer', 'driver', 'cleaner', 'supervisor'],
     zoom: C.ZOOM,
@@ -377,7 +383,6 @@
     // Colleagues present when the round starts (the first is a few steps from the start).
     npcStart: [
       { role: 'operator', x: 12, y: 15, mode: 'stand' },
-      { role: 'cleaner', x: 19, y: 12, mode: 'stand' },
       { role: 'driver', x: 24, y: 15, mode: 'roam', range: 3 },
       { role: 'supervisor', x: 23, y: 9, mode: 'stand' },
       { role: 'welder', x: 28, y: 12, mode: 'stand' },

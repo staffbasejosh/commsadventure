@@ -24,8 +24,8 @@ const C = {
   // Levels shown on the Choose Level screen. A level is playable once LEVELS[id] is registered;
   // until then it shows as a "coming soon" placeholder.
   LEVEL_LIST: [
-    { id: 'healthcare',    num: 1, title: 'Healthcare',    tag: 'Score attack' },
-    { id: 'manufacturing', num: 2, title: 'Manufacturing', tag: 'Score attack' },
+    { id: 'healthcare',    num: 1, title: 'Healthcare',    tag: '' },
+    { id: 'manufacturing', num: 2, title: 'Manufacturing', tag: '' },
     { id: 'finance',       num: 3, title: 'Finance',       tag: 'Coming soon' },
     { id: 'transport',     num: 4, title: 'Transport',     tag: 'Coming soon' },
   ],
@@ -135,13 +135,13 @@ const C = {
     AHEAD_TILES: 90,           // how far ahead the endless hospital is generated
     ENCOUNTER_TILES: 34,       // a generated colleague counts towards read rate once you get this close
     MAX_ACTIVE: 8,             // ...while fewer than this many unreached colleagues are on the map
-    NPC_VALUES: { nurse: 1, doctor: 1, porter: 1, pharmacist: 1, cleaner: 1, nurseLead: 3, supervisor: 3 },
+    NPC_VALUES: { nurse: 1, doctor: 1, porter: 1, pharmacist: 1, cleaner: 1, nurseLead: 3, supervisor: 3, teller: 1, guard: 1, loans: 1, advisor: 1, manager: 3, agent: 1, crew: 1, handler: 1, officer: 1, captain: 3 },
     NPC_ROAM_SPEED: 20,
     STUN_TIME: 1.0,            // managers / pagers / falls
     SLOW_TIME: 1.0,            // union reps, patients
     HIT_GRACE: 1.4,            // no repeat hits for this long
     STOMP_BONUS: 1,            // seconds added for stomping a manager
-    COIN_BONUS: 0.5,           // seconds added per coin / ? block
+    COIN_BONUS: 1,             // seconds added per coin / ? block
     POWERUP_SCALE: 0.5,        // power-up durations are halved in this mode
     CEO_SPEED: 86,             // base speed (player runs at 118)
     CEO_STUN: 2,               // seconds you're stunned if he catches you
@@ -185,6 +185,34 @@ const C = {
     { tag: 'QUIZ NIGHT', lines: ['Thursday 7pm.', 'Team name:', 'The Pallet Pals'], color: '#F28A30' },
     { tag: 'WELCOME', lines: ['New starters', 'say hello in', 'the canteen.'], color: '#2d8f87' },
     { tag: 'RECYCLING', lines: ['Cardboard here.', 'Pallets there.'], color: '#2f9d62' },
+  ],
+  NOTICES_FIN: [   // noticeboards in the bank branch
+    { tag: 'STAFFBASE', lines: ['Every employee.', 'Every branch.', 'One app.'], color: '#090D48' },
+    { tag: 'HOME LOANS', lines: ['Rates you can', 'actually read.', 'Ask us how.'], color: '#1f7a5a' },
+    { tag: 'ALL STAFF', lines: ['Free pastries in', 'the staff room', 'at 3pm.'], color: '#FF475D' },
+    { tag: 'FRAUD ALERT', lines: ['Never share', 'your PIN. Not', 'even with Gary.'], color: '#c0392b' },
+    { tag: 'COMMS TIP', lines: ['One message.', 'One action.', 'Keep it short.'], color: '#006CFF' },
+    { tag: 'QUIZ NIGHT', lines: ['Thursday 7pm.', 'Team name:', 'The Interest Rates'], color: '#F28A30' },
+    { tag: 'CUSTOMER FIRST', lines: ['Smile. Greet.', 'Resolve. Repeat.'], color: '#2b6cb0' },
+    { tag: 'LOST & FOUND', lines: ['One umbrella.', 'One cheque book.', 'Please claim.'], color: '#5b7fa6' },
+    { tag: 'STAFF AWARDS', lines: ['Nominate a', 'colleague today.'], color: '#FF475D' },
+    { tag: 'SAVE MORE', lines: ['Small habits.', 'Big balances.'], color: '#1f7a5a' },
+    { tag: 'WELCOME', lines: ['New starters', 'say hello in', 'the staff room.'], color: '#2d8f87' },
+    { tag: 'SECURITY', lines: ['Badges on.', 'Doors closed.', 'Vault locked.'], color: '#46607a' },
+  ],
+  NOTICES_AIR: [   // noticeboards in the airport terminal
+    { tag: 'STAFFBASE', lines: ['Every employee.', 'Every shift.', 'One app.'], color: '#090D48' },
+    { tag: 'GATE CHANGE', lines: ['Gate 14 is now', 'Gate 41. Sorry.'], color: '#c0392b' },
+    { tag: 'ALL STAFF', lines: ['Free coffee in', 'the crew lounge', 'at 3pm.'], color: '#FF475D' },
+    { tag: 'SAFETY FIRST', lines: ['Mind the trolleys.', 'Pedestrians', 'first. Always.'], color: '#2f9d62' },
+    { tag: 'COMMS TIP', lines: ['One message.', 'One action.', 'Keep it short.'], color: '#006CFF' },
+    { tag: 'QUIZ NIGHT', lines: ['Thursday 7pm.', 'Team name:', 'Frequent Flyers'], color: '#F28A30' },
+    { tag: 'LOST & FOUND', lines: ['One neck pillow.', 'Slightly loved.', 'Please claim.'], color: '#5b7fa6' },
+    { tag: 'STAFF AWARDS', lines: ['Nominate a', 'colleague today.'], color: '#FF475D' },
+    { tag: 'DUTY FREE', lines: ['Staff discount.', 'Ask at the till.'], color: '#8a6b1f' },
+    { tag: 'SECURITY', lines: ['Badges on.', 'Doors closed.', 'Bags attended.'], color: '#46607a' },
+    { tag: 'WELCOME', lines: ['New starters', 'say hello in', 'the crew lounge.'], color: '#2d8f87' },
+    { tag: 'BOARDING', lines: ['Final call for', 'good news.', 'Gate: Everywhere.'], color: '#1f4e79' },
   ],
   NOTICES: [
     { tag: 'STAFFBASE', lines: ['Every employee.', 'Every shift.', 'One app.'], color: '#090D48' },
