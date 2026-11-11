@@ -11,6 +11,7 @@ class Level {
     this.data = data; this.g = game;
     const T = C.TILE;
     this.rows = data.map.length; this.cols = data.map[0].length;
+    this.zoom = data.zoom || 1; this.hudH = data.hud || 0; this.viewW = C.VIEW_W / this.zoom; this.viewH = (C.VIEW_H - this.hudH) / this.zoom;
     data.map.forEach((r, i) => { if (r.length !== this.cols) throw new Error('Level row ' + i + ' has length ' + r.length + ', expected ' + this.cols); });
     this.tiles = data.map.map(r => r.split(''));
     this.time = 0;
@@ -279,6 +280,11 @@ class Level {
     const p = this.player, g = this.g;
     Sound.play('fall');
     if (!this.attack) g.damage(C.INTEGRITY.FALL);
+    else {
+      const lost = Math.min(g.reached, C.ATTACK.PIT_PENALTY);
+      g.reached -= lost;
+      if (lost) this.addPopup('-' + lost, Math.max(40, Math.min(this.mapW - 40, p.x)), 164, '#ff9f98');
+    }
     this.addPopup(this.data.pitText || 'LIFT OUT OF SERVICE!', Math.max(40, Math.min(this.mapW - 40, p.x)), 180, '#ffe27a');
     if (g.integrity <= 0) return;
     // reappear on solid floor, on the side of the shaft the player came from
@@ -423,12 +429,16 @@ class Level {
   }
 
   // ---------------------------------------------------------------- draw
-  draw(ctx, camX, g) {
+  draw(ctx, camX, g, camY = 0) {
     const T = C.TILE, art = this.data.art, time = this.time;
-    art.drawBackground(ctx, camX, time, this.data.areas.find(a => a === this.currentArea).key);
+    ctx.save();
+    if (this.hudH) { ctx.beginPath(); ctx.rect(0, this.hudH, C.VIEW_W, C.VIEW_H - this.hudH); ctx.clip(); ctx.translate(0, this.hudH); }
+    if (this.zoom !== 1) ctx.scale(this.zoom, this.zoom);
+    const cy = Math.round(camY); if (cy) ctx.translate(0, -cy);
+    art.drawBackground(ctx, camX, time, this.data.areas.find(a => a === this.currentArea).key, cy, this);
     art.drawFloorExtras(ctx, camX, this, time);
     const cam = Math.round(camX);
-    const t0 = Math.floor(cam / T), t1 = Math.ceil((cam + C.VIEW_W) / T);
+    const t0 = Math.floor(cam / T), t1 = Math.ceil((cam + this.viewW) / T);
     for (let ty = 0; ty < this.rows; ty++) for (let tx = t0; tx <= t1; tx++) {
       const ch = this.charAt(tx, ty);
       if (ch === '.' || tx < 0 || tx >= this.cols) continue;
@@ -455,6 +465,7 @@ class Level {
     ctx.globalAlpha = 1;
     for (const q of this.popups) { ctx.globalAlpha = Math.min(1, q.t * 2); Gfx.text(ctx, q.text, Math.round(q.x - cam), Math.round(q.y), { color: q.color, shadow: '#0a2327', align: 'center' }); }
     ctx.globalAlpha = 1;
+    ctx.restore();
   }
 
   drawBarriers(ctx, cam, art) {
@@ -497,10 +508,10 @@ const Game = {
   state: 'name', canvas: null, ctx: null,
   playerName: C.DEFAULT_NAME, nameBuffer: '',
   levelData: null, level: null,
-  menuIndex: 0, menuTime: 0, menuCam: 0, levelIndex: 0, sceneTime: 0, timeLeft: 0, reached: 0, reachedCount: 0, spawned: 0, boardLevel: 'healthcare', homeNote: '', homeNoteT: 0, board: [], lastEntry: null, boardScroll: 0,
+  menuIndex: 0, menuTime: 0, menuCam: 0, levelIndex: 0, sceneTime: 0, timeLeft: 0, reached: 0, reachedCount: 0, spawned: 0, boardLevel: 'all', ddOpen: false, homeNote: '', homeNoteT: 0, board: [], lastEntry: null, boardPage: 0,
   integrity: 100, integrityFlash: 0, coins: 0, stomped: 0, deaths: 0, time: 0,
   ceoOverlayTimer: 0, ceoMessage: '', corruptSeed: [], toast: '', toastTimer: 0, toastColor: '#0f3a40', banner: null,
-  camX: 0, snapCamera: true, results: null, hintedPush: false,
+  camX: 0, camY: 0, snapCamera: true, results: null, hintedPush: false,
   _acc: 0, _last: 0, debug: false, fps: 0, _frames: 0, _fpsT: 0,
 
   get player() { return this.level.player; },
@@ -562,7 +573,8 @@ const Game = {
     this.canvas.style.width = Math.floor(C.VIEW_W * scale) + 'px';
     this.canvas.style.height = Math.floor(C.VIEW_H * scale) + 'px';
     // Hi-res backing store (integer multiple of the 480x272 logical size) keeps vector text crisp.
-    const S = Math.max(2, Math.min(6, Math.round(scale * (window.devicePixelRatio || 1))));
+    let S = Math.round(scale * (window.devicePixelRatio || 1));
+    S = S <= 4 ? 3 : 6;   // multiple of 3, so the 4/3 world zoom lands on whole device pixels
     Gfx.state.S = S;
     if (this.canvas.width !== C.VIEW_W * S) { this.canvas.width = C.VIEW_W * S; this.canvas.height = C.VIEW_H * S; }
   },
@@ -571,6 +583,7 @@ const Game = {
     this.state = s; this.menuTime = 0; this.editing = false;
     Input.setTextHandler(null);
     if (s === 'title') this.menuIndex = 0;
+    if (s === 'paused') { this.pauseSel = 0; this.pauseConfirm = false; this.confirmSel = 1; }
   },
 
   enterNameEntry(prefill, returnTo) {
@@ -613,11 +626,20 @@ const Game = {
       } else if (this.state === 'levels') {
         if (h && h.id === 'back') this.goHome();
         else if (h && h.id.startsWith('lvl')) { this.levelIndex = +h.id.slice(3); this.chooseLevel(); }
+      } else if (this.state === 'intro') {
+        if (h) this.introAction(h.id);
+      } else if (this.state === 'paused') {
+        if (h) this.pauseAction(h.id);
       } else if (this.state === 'complete') {
-        if (h && h.id === 'again') { Sound.play('confirm'); this.playAgain(); } else if (h && h.id === 'home') this.goHome();
+        if (h && h.id === 'again') { Sound.play('confirm'); this.playAgain(); } else if (h && h.id === 'levels') this.goLevels(); else if (h && h.id === 'home') this.goHome();
       } else if (this.state === 'howto' || this.state === 'leaderboard') {
         if (h && h.id === 'back') this.goHome();
-        else if (h && h.id.startsWith('tab:')) { this.boardLevel = h.id.slice(4); this.boardScroll = 0; Sound.play('menu'); }
+        else if (this.state === 'leaderboard') {
+          if (h && h.id === 'dd') { this.ddOpen = !this.ddOpen; Sound.play('menu'); }
+          else if (h && h.id.startsWith('opt:')) { this.boardLevel = h.id.slice(4); this.boardPage = 0; this.ddOpen = false; Sound.play('menu'); }
+          else if (h && (h.id === 'prev' || h.id === 'next')) this.turnPage(h.id === 'next' ? 1 : -1);
+          else this.ddOpen = false;
+        }
       } else if (this.state === 'name' && h && h.id === 'confirm') {
         const n = this.sanitizeName(this.nameBuffer) || C.DEFAULT_NAME;
         this.playerName = n; this.saveName(n); Sound.play('confirm'); this.setState('title');
@@ -636,12 +658,28 @@ const Game = {
   },
 
   // ---- home / menus
+  /** Pause menu: resume, end the game early (the score so far is recorded), or quit home after an "are you sure?". */
+  pauseAction(id) {
+    if (id === 'resume' || id === 'no') {
+      if (id === 'no') { this.pauseConfirm = false; Sound.play('menu'); return; }
+      Sound.play('pause'); this.setState('playing');
+    } else if (id === 'end') {
+      this.state = 'playing'; this.endedEarly = true;
+      if (this.levelData.mode === 'attack') this.finishAttack(); else this.gameOver();
+    } else if (id === 'home') { this.pauseConfirm = true; this.confirmSel = 1; Sound.play('menu'); }
+    else if (id === 'yes') this.pauseAction('end');   // leaving mid-game still records the score and shows the results
+  },
   goHome() { Sound.play('menu'); this.setState('title'); },
+  introAction(id) {
+    if (id === 'back') { Sound.play('menu'); this.setState('levels'); }
+    else { Sound.play('confirm'); this.setState('playing'); this.level.lastAreaKey = null; }
+  },
+  goLevels() { Sound.play('menu'); this.setState('levels'); this.levelIndex = 0; },
   activateHome(id) {
     if (id === 'field') { this.menuIndex = 3; Sound.play('menu'); this.startNameEdit(); return; }
     Sound.play('confirm');
     if (id === 'levels') { this.setState('levels'); this.levelIndex = 0; }
-    else if (id === 'leaderboard') { this.board = this.loadBoard(); this.setState('leaderboard'); this.boardScroll = 0; this.lastEntry = null; if (!LEVELS[this.boardLevel]) this.boardLevel = 'healthcare'; }
+    else if (id === 'leaderboard') { this.board = this.loadBoard(); this.setState('leaderboard'); this.boardPage = 0; this.lastEntry = null; this.boardLevel = 'all'; this.ddOpen = false; }
     else if (id === 'howto') this.setState('howto');
   },
   chooseLevel() {
@@ -659,7 +697,7 @@ const Game = {
       const a = JSON.parse(localStorage.getItem(C.BOARD_KEY) || '[]');
       if (!Array.isArray(a)) return [];
       for (const e of a) if (e.score === undefined) e.score = this.scoreOf(e);   // older entries
-      return a;
+      return a.filter(e => e.outcome === 'round');   // both levels are score-attack rounds now; scores from the retired flag run are dropped
     } catch (e) { return []; }
   },
   /** Single leaderboard score. Works from a stored entry so older entries can be scored too. */
@@ -672,17 +710,24 @@ const Game = {
     return Math.round(Math.max(0, S.DELIVERED_BASE + bonus + base + (e.integrity || 0) * S.PER_INTEGRITY + (e.deaths || 0) * S.PER_RESTART));
   },
   /** Entries for the leaderboard tab being shown (score-attack rounds and flag levels are kept apart). */
-  boardList() {
-    const lv = LEVELS[this.boardLevel]; if (!lv) return [];
-    const round = lv.mode === 'attack';
-    return (this.board || []).filter(e => e.level === lv.title && (e.outcome === 'round') === round).slice(0, C.BOARD_MAX);
+  boardPages() { return Math.max(1, Math.ceil(this.boardList().length / C.BOARD_PAGE)); },
+  turnPage(d) {
+    const n = Math.max(0, Math.min(this.boardPages() - 1, this.boardPage + d));
+    if (n !== this.boardPage) { this.boardPage = n; Sound.play('menu'); }
   },
+  boardList() {
+    const all = this.board || [];
+    if (this.boardLevel === 'all') return all.slice();
+    const lv = LEVELS[this.boardLevel]; if (!lv) return [];
+    return all.filter(e => e.level === lv.title);
+  },
+
   /** Every attempt (delivered or failed) is ranked by its score, highest first. */
   addToBoard(entry) {
     entry.score = this.scoreOf(entry);
     const board = this.loadBoard();
     board.push(entry);
-    board.sort((a, b) => b.score - a.score || (a.outcome === 'round' ? b.readRate - a.readRate : a.time - b.time));
+    board.sort((a, b) => b.score - a.score || a.stamp - b.stamp);
     const seen = {};
     const kept = board.filter(e => { const k = e.level + '|' + (e.outcome === 'round'); seen[k] = (seen[k] || 0) + 1; return seen[k] <= C.BOARD_MAX; });
     board.length = 0; board.push(...kept);
@@ -720,8 +765,9 @@ const Game = {
     this.level = new Level(this.levelData, this);
     this.integrity = C.INTEGRITY.START; this.coins = 0; this.stomped = 0; this.deaths = 0; this.time = 0;
     this.ceoOverlayTimer = 0; this.toastTimer = 0; this.banner = { text: this.levelData.title.toUpperCase(), sub: this.levelData.areas[0].name.toUpperCase(), t: 2.2 };
-    this.hintedPush = false; this.snapCamera = true; this.integrityFlash = 0;
+    this.hintedPush = false; this.snapCamera = true; this.integrityFlash = 0; this.endedEarly = false;
     if (this.levelData.mode === 'attack') { this.timeLeft = C.ATTACK.ROUND_TIME; this.lastTick = 99; }
+    this.introSel = 0;
     this.setState('intro');
   },
 
@@ -739,8 +785,9 @@ const Game = {
   finishAttack() {
     if (this.state !== 'playing') return;
     const readRate = this.spawned ? Math.min(100, this.reachedCount / this.spawned * 100) : 0;
-    this.results = { mode: 'attack', reached: this.reached, reachedCount: this.reachedCount, spawned: this.spawned, readRate, coins: this.coins, stomped: this.stomped, rank: Attack.rankFor(this.reached) };
+    this.results = { mode: 'attack', early: !!this.endedEarly, reached: this.reached, reachedCount: this.reachedCount, spawned: this.spawned, readRate, coins: this.coins, stomped: this.stomped, rank: Attack.rankFor(this.reached) };
     this.addToBoard({ outcome: 'round', name: this.playerName, level: this.levelData.title, time: C.ATTACK.ROUND_TIME, reached: this.reached, readRate, coins: this.coins, stomped: this.stomped, stamp: Date.now() + Math.random() });
+    this.completeSel = 0;
     this.results.place = this.board.filter(x => x.level === this.levelData.title && x.outcome === 'round').indexOf(this.lastEntry) + 1;
     Sound.play('win');
     this.setState('complete');
@@ -801,18 +848,20 @@ const Game = {
       case 'howto': case 'leaderboard':
         this.menuCam += dt * 30;
         if (this.state === 'leaderboard') {
-          const tabs = C.LEVEL_LIST.filter(l => LEVELS[l.id]), ti = Math.max(0, tabs.findIndex(l => l.id === this.boardLevel));
-          if (Input.pressed('moveRight') && ti < tabs.length - 1) { this.boardLevel = tabs[ti + 1].id; this.boardScroll = 0; Sound.play('menu'); }
-          if (Input.pressed('moveLeft') && ti > 0) { this.boardLevel = tabs[ti - 1].id; this.boardScroll = 0; Sound.play('menu'); }
-          const max = Math.max(0, this.boardList().length - 8);
-          if (Input.pressed('down') && this.boardScroll < max) { this.boardScroll++; Sound.play('menu'); }
-          if (Input.pressed('up') && this.boardScroll > 0) { this.boardScroll--; Sound.play('menu'); }
+          if (!this.ddOpen) {
+            if (Input.pressed('moveRight') || Input.pressed('down')) this.turnPage(1);
+            if (Input.pressed('moveLeft') || Input.pressed('up')) this.turnPage(-1);
+          }
         }
-        if (Input.pressed('confirm') || Input.pressed('pause')) this.goHome();
+        if (this.ddOpen && (Input.pressed('confirm') || Input.pressed('pause'))) this.ddOpen = false;
+        else if (Input.pressed('confirm') || Input.pressed('pause')) this.goHome();
         break;
       case 'intro':
         this.menuCam += dt * 20;
-        if (Input.pressed('confirm')) { Sound.play('confirm'); this.setState('playing'); this.level.lastAreaKey = null; }
+        if (Input.pressed('moveLeft')) { this.introSel = 1; Sound.play('menu'); }
+        else if (Input.pressed('moveRight')) { this.introSel = 0; Sound.play('menu'); }
+        else if (Input.pressed('pause')) this.introAction('back');
+        else if (Input.pressed('confirm')) this.introAction(this.introSel ? 'back' : 'start');
         break;
       case 'playing':
         if (Input.pressed('pause')) { Sound.play('pause'); this.setState('paused'); break; }
@@ -831,8 +880,14 @@ const Game = {
         this.updateCamera(dt);
         break;
       case 'paused':
-        if (Input.pressed('pause')) { Sound.play('pause'); this.setState('playing'); }
-        else if (Input.pressed('confirm')) { this.setState('title'); }
+        if (this.pauseConfirm) {
+          if (Input.pressed('up') || Input.pressed('down') || Input.pressed('moveLeft') || Input.pressed('moveRight')) { this.confirmSel = 1 - this.confirmSel; Sound.play('menu'); }
+          else if (Input.pressed('pause')) { this.pauseConfirm = false; Sound.play('menu'); }
+          else if (Input.pressed('confirm')) this.pauseAction(this.confirmSel === 0 ? 'yes' : 'no');
+        } else if (Input.pressed('pause')) this.pauseAction('resume');
+        else if (Input.pressed('up')) { this.pauseSel = (this.pauseSel + 2) % 3; Sound.play('menu'); }
+        else if (Input.pressed('down')) { this.pauseSel = (this.pauseSel + 1) % 3; Sound.play('menu'); }
+        else if (Input.pressed('confirm')) this.pauseAction(['resume', 'end', 'home'][this.pauseSel]);
         break;
       case 'gameover':
         if (Input.pressed('confirm')) { Sound.play('confirm'); this.retry(); }
@@ -840,7 +895,9 @@ const Game = {
         break;
       case 'complete':
         if (this.results && this.results.mode === 'attack') {
-          if (Input.pressed('confirm')) { Sound.play('confirm'); this.playAgain(); }   // instant restart, same name
+          if (Input.pressed('moveLeft')) { this.completeSel = (this.completeSel + 2) % 3; Sound.play('menu'); }
+          else if (Input.pressed('moveRight')) { this.completeSel = (this.completeSel + 1) % 3; Sound.play('menu'); }
+          else if (Input.pressed('confirm')) { const s = this.completeSel || 0; if (s === 0) { Sound.play('confirm'); this.playAgain(); } else if (s === 1) this.goLevels(); else this.goHome(); }
           else if (Input.pressed('pause')) this.goHome();
         } else if (Input.pressed('confirm')) { Sound.play('confirm'); this.setState('title'); }
         break;
@@ -850,23 +907,32 @@ const Game = {
 
   updateCamera(dt) {
     const p = this.player, L = this.level;
-    const target = p.x + p.w / 2 + p.face * C.CAMERA.LOOKAHEAD - C.VIEW_W * C.CAMERA.SCREEN_X;
-    const max = L.mapW - C.VIEW_W;
+    const target = p.x + p.w / 2 + p.face * C.CAMERA.LOOKAHEAD - L.viewW * C.CAMERA.SCREEN_X;
+    const max = L.mapW - L.viewW;
     const t = Math.max(0, Math.min(max, target));
+    // vertical: a zoomed level uses one fixed framing (ground floor in view, upper floors above) so the camera never bobs
+    const maxY = Math.max(0, L.rows * C.TILE - L.viewH);
+    const ty = L.zoom !== 1 ? Math.max(0, Math.min(maxY, C.CAMERA.FIXED_Y)) : 0;
     if (this.snapCamera) { this.camX = t; this.snapCamera = false; }
     else this.camX += (t - this.camX) * Math.min(1, C.CAMERA.FOLLOW * dt);
+    this.camY = ty;
     this.camX = Math.max(0, Math.min(max, this.camX));
+    this.camY = Math.max(0, Math.min(maxY, this.camY));
   },
 
   // ---- rendering
   drawMenuBackground(ctx) {
     const art = this.levelData.art, T = C.TILE;
-    art.drawBackground(ctx, this.menuCam, this.menuTime, 'corridor');
+    const Z = this.levelData.zoom || 1, vw = C.VIEW_W / Z, camY = Z !== 1 ? Math.round(C.VIEW_H - C.VIEW_H / Z) : 0;
+    ctx.save();
+    if (Z !== 1) { ctx.scale(Z, Z); ctx.translate(0, -camY); }
+    art.drawBackground(ctx, this.menuCam, this.menuTime, 'corridor', camY);
     const S = art.sprites(), off = -(Math.round(this.menuCam) % T);
-    for (let x = off - T; x < C.VIEW_W + T; x += T) {
+    for (let x = off - T; x < vw + T; x += T) {
       const tx = Math.round((x + this.menuCam) / T);
       ctx.drawImage(S.floorTop[tx & 1], x, 240); ctx.drawImage(S.floorBody[tx & 1], x, 256);
     }
+    ctx.restore();
   },
 
   render() {
@@ -897,7 +963,7 @@ const Game = {
     const L = this.level;
     let cx = this.camX;
     if (L.shake > 0) cx += Math.round((Math.random() - 0.5) * 4);
-    L.draw(ctx, cx, this);
+    L.draw(ctx, cx, this, this.camY);
   },
 
   // ---- main loop (fixed 60 Hz timestep with accumulator)

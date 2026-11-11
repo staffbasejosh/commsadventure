@@ -380,7 +380,7 @@ const UI = (() => {
   const HOME_ROWS = [
     { id: 'levels', title: 'Choose level', sub: 'Pick your industry', icon: 'levels' },
     { id: 'leaderboard', title: 'Leaderboard', sub: 'Top scores', icon: 'board' },
-    { id: 'howto', title: 'How to play', sub: 'Controls and tips', icon: 'help' },
+    { id: 'howto', title: 'How to play', sub: 'Controls', icon: 'help' },
   ];
   const homeRow = i => ({ id: HOME_ROWS[i].id, x: 258, y: 28 + i * 47, w: 160, h: 42 });
   const lvlCard = i => ({ id: 'lvl' + i, x: 50 + (i % 2) * 196, y: 90 + Math.floor(i / 2) * 72, w: 184, h: 62 });
@@ -392,9 +392,11 @@ const UI = (() => {
       case 'title': return [homeRow(0), homeRow(1), homeRow(2), NAME_FIELD];
       case 'levels': return [0, 1, 2, 3].map(lvlCard).concat([BACK]);
       case 'howto': return [BACK];
-      case 'leaderboard': { const n = lbTabs().length; return [BACK].concat(n > 1 ? lbTabs().map((l, i) => tabRect(i, n)) : []); }
-      case 'complete': return g.results && g.results.mode === 'attack' ? [{ id: 'again', x: 52, y: 214, w: 150, h: 18 }, { id: 'home', x: 212, y: 214, w: 96, h: 18 }] : [];
+      case 'leaderboard': return g.ddOpen ? lbOptions().map((o, i) => ddRow(i)).concat([BACK]) : [BACK, Object.assign({ id: 'dd' }, DD)].concat(g.boardPages() > 1 ? [PAGE_PREV, PAGE_NEXT] : []);
+      case 'complete': return g.results && g.results.mode === 'attack' ? ROUND_BTNS.map(b => ({ id: b.id, x: b.x, y: b.y, w: b.w, h: b.h })) : [];
       case 'name': return [{ id: 'confirm', x: 90, y: 176, w: 120, h: 18 }];
+      case 'paused': return pauseButtons(g);
+      case 'intro': return INTRO_BTNS.map(b => ({ id: b.id, x: b.x, y: b.y, w: b.w, h: b.h }));
     }
     return [];
   }
@@ -614,15 +616,14 @@ const UI = (() => {
     backdrop(ctx, g, 0.74);
     Gfx.card(ctx, 30, 14, 420, 244);
     screenHeader(ctx, 'CHOOSE LEVEL', [['Pick your ', DB], ['industry', SB]]);
-    T(ctx, 'Every industry has its own route, its own obstacles and its own CEO.', 50, 70, { size: 7.4, color: SOFT });
+    T(ctx, 'Every industry has its own cast, its own obstacles and its own theme.', 50, 70, { size: 7.4, color: SOFT });
     C.LEVEL_LIST.forEach((lv, i) => {
       const r = lvlCard(i), sel = g.levelIndex === i, ready = !!LEVELS[lv.id];
       if (sel) Gfx.card(ctx, r.x, r.y, r.w, r.h, { r: 10, blur: 9, stroke: ready ? SB : B.gray });
       else rr(ctx, r.x, r.y, r.w, r.h, 10, ready ? '#ffffff' : B.light, B.mid, 0.9);
       levelTile(ctx, lv.id, r.x + 10, r.y + 11, 40, !ready);
-      T(ctx, 'LEVEL ' + lv.num, r.x + 60, r.y + 11, { font: 'label', size: 5.8, color: ready ? B.midBlue : B.gray, spacing: 0.7 });
-      T(ctx, lv.title, r.x + 60, r.y + 21, { scale: 2, size: 12, color: ready ? DB : '#7a7c9c' });
-      T(ctx, ready ? (LEVELS[lv.id].message || lv.tag) : 'Coming soon', r.x + 60, r.y + 38, { size: 6.8, raw: true, color: ready ? SOFT : B.gray });
+      T(ctx, lv.title, r.x + 60, r.y + 17, { scale: 2, size: 12, color: ready ? DB : '#7a7c9c' });
+      T(ctx, ready ? (LEVELS[lv.id].message || lv.tag) : 'Coming soon', r.x + 60, r.y + 36, { size: 6.8, raw: true, color: ready ? SOFT : B.gray });
       if (ready) Gfx.arrow(ctx, r.x + r.w - 16 + (sel ? Math.round(Math.sin(g.menuTime * 6) * 1.2 + 1) : 0), r.y + r.h - 12, sel ? OR : B.gray, 6);
       else lock(ctx, r.x + r.w - 17, r.y + r.h - 19, B.gray);
     });
@@ -634,7 +635,7 @@ const UI = (() => {
     backdrop(ctx, g, 0.74);
     Gfx.card(ctx, 30, 14, 420, 244);
     screenHeader(ctx, 'HOW TO PLAY', [['Get the ', DB], ['message', SB], [' there in time', DB]]);
-    T(ctx, 'CONTROLS', 50, 72, { font: 'label', color: B.midBlue, spacing: 0.7 });
+    T(ctx, 'CONTROLS', 170, 72, { font: 'label', color: B.midBlue, spacing: 0.7 });
     const rows = [
       ['Move', 'Left / Right arrows'],
       ['Jump', 'Up or Space. Hold to go higher'],
@@ -644,69 +645,66 @@ const UI = (() => {
     ];
     rows.forEach((r, i) => {
       const y = 86 + i * 29;
-      vbar(ctx, 50, y, 21, SB);
-      T(ctx, r[0], 58, y + 1, { bold: true, color: DB });
-      T(ctx, r[1], 58, y + 12, { size: 6.8, color: SOFT });
-    });
-    rr(ctx, 244, 66, 186, 160, 10, B.tint);
-    T(ctx, 'TIPS', 258, 78, { font: 'label', color: B.midBlue, spacing: 0.7 });
-    const tips = [
-      ['Healthcare: score attack', 'Touch colleagues before the handover timer ends.', SB],
-      ['Manufacturing: find the foreman', 'Beat the CEO to the end of the factory floor.', OR],
-      ['Grab coins, dodge obstacles', 'Coins add 0.5s. Trolleys slow you; vending machines and closed rooms block the way.', SB],
-      ['Dodge the CEO and HR', 'They steal colleagues and stun you if they catch you.', OR],
-    ];
-    tips.forEach((t, i) => {
-      const y = 92 + i * 33;
-      vbar(ctx, 258, y, 26, t[2]);
-      T(ctx, t[0], 266, y + 1, { bold: true, color: DB });
-      const words = t[1].split(' '); let l1 = '', l2 = '';
-      for (const w of words) { if (Gfx.measure(l1 + w, { size: 6.6 }).w < 150 && !l2) l1 += w + ' '; else l2 += w + ' '; }
-      T(ctx, l1.trim(), 266, y + 12, { size: 6.6, color: SOFT });
-      T(ctx, l2.trim(), 266, y + 21, { size: 6.6, color: SOFT });
+      vbar(ctx, 170, y, 21, SB);
+      T(ctx, r[0], 178, y + 1, { bold: true, color: DB });
+      T(ctx, r[1], 178, y + 12, { size: 6.8, color: SOFT });
     });
     backButton(ctx, g);
   }
 
   // ---- leaderboard --------------------------------------------------------------
   const lbTabs = () => C.LEVEL_LIST.filter(l => LEVELS[l.id]);
-  const tabRect = (i, n) => ({ id: 'tab:' + lbTabs()[i].id, x: 450 - (n - i) * 86 + 4, y: 22, w: 80, h: 14 });
+  const lbOptions = () => [{ id: 'all', title: 'All levels' }].concat(lbTabs());
+  const DD = { x: 318, y: 22, w: 112, h: 14 };
+  const PAGE_PREV = { id: 'prev', x: 318, y: 234, w: 26, h: 16 }, PAGE_NEXT = { id: 'next', x: 404, y: 234, w: 26, h: 16 };
+  const ddRow = i => ({ id: 'opt:' + lbOptions()[i].id, x: DD.x, y: DD.y + DD.h + 2 + i * 14, w: DD.w, h: 14 });
   function leaderboard(ctx, g) {
     backdrop(ctx, g, 0.74);
     Gfx.card(ctx, 30, 14, 420, 244);
     screenHeader(ctx, 'LEADERBOARD', [['Top ', SB], ['scores', DB]]);
-    const tabs = lbTabs(), cur = LEVELS[g.boardLevel] ? g.boardLevel : tabs[0].id, lvl = LEVELS[cur], round = lvl.mode === 'attack';
-    tabs.forEach((l, i) => {
-      const r = tabRect(i, tabs.length), on = l.id === cur;
-      rr(ctx, r.x, r.y, r.w, r.h, 7, on ? DB : B.light, on ? null : B.mid, 0.8);
-      T(ctx, l.title, r.x + r.w / 2, r.y + 3.6, { font: 'label', size: 5.8, color: on ? '#ffffff' : DB, align: 'center', spacing: 0.4 });
-    });
+    const opts = lbOptions(), cur = opts.find(o => o.id === g.boardLevel) || opts[0];
     const board = g.boardList();
-    const cols = { rank: 54, name: 76, level: 206, time: 322, result: 424 };
+    const cols = { rank: 54, name: 80, level: 230, result: 424 };
     T(ctx, '#', cols.rank, 74, { font: 'label', color: SOFT });
     T(ctx, 'NAME', cols.name, 74, { font: 'label', color: SOFT });
     T(ctx, 'LEVEL', cols.level, 74, { font: 'label', color: SOFT });
-    T(ctx, round ? 'READ RATE' : 'TIME', cols.time, 74, { font: 'label', color: SOFT, align: 'right' });
-    T(ctx, round ? 'REACHED' : 'SCORE', cols.result, 74, { font: 'label', color: SOFT, align: 'right' });
+    T(ctx, 'SCORE', cols.result, 74, { font: 'label', color: SOFT, align: 'right' });
     if (!board.length) {
       rr(ctx, 50, 90, 380, 120, 10, B.tint);
       T(ctx, 'No scores yet', 240, 128, { scale: 2, size: 14, color: DB, align: 'center' });
-      T(ctx, round ? 'Play a round and your reach lands here.' : 'Every delivery and every failed attempt lands here.', 240, 150, { color: SOFT, align: 'center' });
+      T(ctx, 'Play a round and your score lands here.', 240, 150, { color: SOFT, align: 'center' });
     } else {
-      const off = Math.min(g.boardScroll || 0, Math.max(0, board.length - 8));
-      board.slice(off, off + 8).forEach((e, k) => {
-        const i = off + k, y = 86 + k * 17, mine = g.lastEntry === e;
-        if (k % 2 === 0) rr(ctx, 50, y - 2, 380, 15, 6, B.tint);
-        if (mine) vbar(ctx, 50, y - 1, 13, OR);
-        T(ctx, String(i + 1), cols.rank, y + 2, { bold: true, color: i < 3 ? B.midBlue : DB });
-        T(ctx, e.name, cols.name, y + 2, { raw: true, bold: true, color: DB });
-        T(ctx, e.level, cols.level, y + 2, { raw: true, color: SOFT });
-        T(ctx, round ? Math.round(e.readRate) + '%' : fmtTime(e.time), cols.time, y + 2, { bold: true, color: DB, align: 'right' });
-        T(ctx, e.score.toLocaleString('en-US'), cols.result, y + 2, { bold: true, color: DB, align: 'right' });
+      const pages = g.boardPages(), page = Math.min(g.boardPage || 0, pages - 1), off = page * C.BOARD_PAGE;
+      board.slice(off, off + C.BOARD_PAGE).forEach((e, k) => {
+        const i = off + k, y = 86 + k * 14, mine = g.lastEntry === e;
+        if (k % 2 === 0) rr(ctx, 50, y - 2, 380, 13, 5, B.tint);
+        if (mine) vbar(ctx, 50, y - 1, 11, OR);
+        T(ctx, String(i + 1), cols.rank, y + 1, { bold: true, color: i < 3 ? B.midBlue : DB });
+        T(ctx, e.name, cols.name, y + 1, { raw: true, bold: true, color: DB });
+        T(ctx, e.level, cols.level, y + 1, { raw: true, color: SOFT });
+        T(ctx, e.score.toLocaleString('en-US'), cols.result, y + 1, { bold: true, color: DB, align: 'right' });
       });
-      if (board.length > 8) T(ctx, (off + 1) + '\u2013' + Math.min(board.length, off + 8) + ' of ' + board.length, 430, BACK.y + 4.4, { align: 'right', size: 6.8, color: SOFT });
+      if (pages > 1) {
+        [[PAGE_PREV, page > 0, -1], [PAGE_NEXT, page < pages - 1, 1]].forEach(([r, on, d]) => {
+          rr(ctx, r.x, r.y, r.w, r.h, 8, on ? B.light : 'rgba(0,0,0,0.04)', on ? B.mid : null, 0.8);
+          Gfx.arrow(ctx, r.x + r.w / 2 - d * 2, r.y + r.h / 2, on ? DB : '#b9c0cc', d * 5);
+        });
+        T(ctx, 'Page ' + (page + 1) + ' of ' + pages, 374, BACK.y + 4.4, { align: 'center', size: 6.8, bold: true, color: DB });
+      }
     }
-    backButton(ctx, g, tabs.length > 1 ? 'Left / Right to switch level' : 'Saved on this device only');
+    backButton(ctx, g);
+    // level dropdown (drawn last so its list sits on top of the table)
+    rr(ctx, DD.x, DD.y, DD.w, DD.h, 7, g.ddOpen ? DB : B.light, g.ddOpen ? null : B.mid, 0.8);
+    T(ctx, cur.title, DD.x + 10, DD.y + 3.6, { font: 'label', size: 5.8, color: g.ddOpen ? '#ffffff' : DB, spacing: 0.4 });
+    ctx.fillStyle = g.ddOpen ? '#ffffff' : DB; ctx.beginPath();
+    const ax = DD.x + DD.w - 12, ay = DD.y + 6;
+    if (g.ddOpen) { ctx.moveTo(ax - 3, ay + 2); ctx.lineTo(ax + 3, ay + 2); ctx.lineTo(ax, ay - 2); } else { ctx.moveTo(ax - 3, ay - 2); ctx.lineTo(ax + 3, ay - 2); ctx.lineTo(ax, ay + 2); }
+    ctx.closePath(); ctx.fill();
+    if (g.ddOpen) opts.forEach((o, i) => {
+      const r = ddRow(i), on = o.id === cur.id;
+      rr(ctx, r.x, r.y, r.w, r.h, 6, on ? B.tint : '#ffffff', B.mid, 0.8);
+      T(ctx, o.title, r.x + 10, r.y + 3.6, { font: 'label', size: 5.8, color: DB, spacing: 0.4 });
+    });
   }
 
   function nameEntry(ctx, g) {
@@ -727,20 +725,25 @@ const UI = (() => {
     T(ctx, 'Press Enter', 222, 181, { size: 7, color: SOFT });
   }
 
+  const INTRO_BTNS = [{ id: 'start', x: 236, y: 222, w: 120, h: 18, label: 'Start' }, { id: 'back', x: 124, y: 222, w: 100, h: 18, label: 'Back' }];
   function intro(ctx, g) {
     backdrop(ctx, g, 0.8);
-    const L = g.levelData;
+    const L = g.levelData, cx = W / 2;
     Gfx.card(ctx, 40, 20, 400, 232);
-    eyebrow(ctx, 62, 38, 'LEVEL ' + levelNum(g));
-    T(ctx, L.title, 62, 58, { scale: 3, size: 22, color: DB });
-    let y = 90;
-    for (const line of L.intro(g.playerName)) { T(ctx, line, 62, y, { size: 8, color: DB, raw: true }); y += 11; }
-    y += 5;
-    vbar(ctx, 62, y, 24);
-    T(ctx, 'YOUR MESSAGE', 70, y, { font: 'label', color: SOFT, spacing: 0.7 });
-    T(ctx, '“' + L.message + '”', 70, y + 11, { scale: 2, size: 12, color: DB });
-    Gfx.cta(ctx, 'Start the shift', 62, 226, 150, 18, true, Math.round(Math.sin(g.menuTime * 6) * 1.2 + 1));
-    T(ctx, 'Press Enter', 224, 231, { size: 7, color: SOFT });
+    T(ctx, L.title, cx, 40, { scale: 3, size: 20, color: DB, align: 'center' });
+    let y = 84;
+    L.intro(g.playerName).forEach((line, i) => {
+      if (!line) { y += 10; return; }
+      T(ctx, line, cx, y, { size: i === 0 ? 9.5 : 8.5, bold: i === 0, color: DB, raw: true, align: 'center' });
+      y += 13;
+    });
+    if (L.mode !== 'attack') {   // flag levels still show the message that corrupts during the run
+      y += 6;
+      T(ctx, 'YOUR MESSAGE', cx, y, { font: 'label', color: SOFT, spacing: 0.7, align: 'center' });
+      T(ctx, '\u201c' + L.message + '\u201d', cx, y + 11, { scale: 2, size: 12, color: DB, align: 'center' });
+    }
+    const nudge = Math.round(Math.sin(g.menuTime * 6) * 1.2 + 1), sel = g.introSel || 0;
+    INTRO_BTNS.forEach((b, i) => Gfx.cta(ctx, b.label, b.x, b.y, b.w, b.h, i === sel, i === sel ? nudge : 0));
   }
 
   /** Message with characters corrupting as integrity falls. */
@@ -757,33 +760,49 @@ const UI = (() => {
     return out;
   }
 
-  const levelNum = g => Math.max(1, C.LEVEL_LIST.findIndex(l => l.id === g.levelData.id) + 1);
   function pill(ctx, x, y, w, h, fill) { rr(ctx, x, y, w, h, h / 2, fill); }
 
-  /** Top bar for score-attack rounds: handover countdown + live Reached counter. */
+  /** Score-attack HUD: no bar, just a countdown (left) and the score with a gold coin (right), drawn straight onto the game. */
   function hudRound(ctx, g) {
     const tl = Math.max(0, g.timeLeft);
     const secs = Math.ceil(tl), mm = Math.floor(secs / 60), ss = secs % 60;
-    const urgent = tl <= 10;
-    T(ctx, g.playerName, 7, 3, { raw: true, bold: true, color: DB });
-    T(ctx, 'Healthcare round', 7, 14, { size: 6.6, color: SOFT });
-    // countdown
-    const pulse = urgent && Math.floor(g.time * 4) % 2 === 0;
-    rr(ctx, 150, 3, 180, 20, 10, urgent ? (pulse ? B.pink : '#D12B42') : DB);
-    T(ctx, 'HANDOVER IN', 166, 9.4, { font: 'label', size: 5.6, color: urgent ? '#ffffff' : SB, spacing: 0.7 });
-    T(ctx, mm + ':' + (ss < 10 ? '0' : '') + ss, 316, 6.4, { scale: 2, size: 12, color: '#ffffff', align: 'right' });
-    // reached counter
-    ctx.beginPath(); ctx.arc(W - 92, 8.4, 4, 0, Math.PI * 2); ctx.fillStyle = OR; ctx.fill();
-    T(ctx, 'Reached', W - 85, 3.6, { size: 6.4, color: SOFT });
-    T(ctx, String(g.reached), W - 6, 5.6, { scale: 2, size: 14, color: DB, align: 'right' });
+    const urgent = tl <= 10, pulse = urgent && Math.floor(g.time * 4) % 2 === 0;
+    const BAR = 20, cx0 = W / 2, cy0 = 17, ring = urgent ? (pulse ? B.pink : '#D12B42') : SB;
+    ctx.fillStyle = DB; ctx.fillRect(0, 0, W, BAR);          // slim navy header: white text contrasts on any wall
+    Gfx.brandBar(ctx, 0, BAR, W, 1.5);
+    // left: label.  right: label, gold coin and score
+    T(ctx, 'TIME REMAINING', cx0 - 26, 7.2, { font: 'label', size: 5.8, color: '#ffffff', spacing: 0.9, align: 'right' });
+    T(ctx, 'SCORE', cx0 + 26, 7.2, { font: 'label', size: 5.8, color: '#ffffff', spacing: 0.9 });
+    const num = String(g.reached), lw = Gfx.measure('SCORE', { font: 'label', size: 5.8, spacing: 0.9 }).w;
+    const cx = cx0 + 26 + lw + 11, cy = 10;
+    ctx.beginPath(); ctx.arc(cx, cy, 6, 0, Math.PI * 2); ctx.fillStyle = '#b8860b'; ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI * 2); ctx.fillStyle = '#f6c945'; ctx.fill();
+    px(ctx, '#fff3b0', cx - 2.4, cy - 3, 1.3, 5); px(ctx, '#b8860b', cx - 0.5, cy - 1.4, 2.4, 2.8);
+    T(ctx, num, cx + 10, 5.4, { scale: 2, size: 11, color: '#ffffff' });
+    // centre: countdown in a circle that hangs just below the bar
+    ctx.beginPath(); ctx.arc(cx0, cy0, 17.5, 0, Math.PI * 2); ctx.fillStyle = '#ffffff'; ctx.fill();
+    ctx.beginPath(); ctx.arc(cx0, cy0, 16, 0, Math.PI * 2); ctx.fillStyle = ring; ctx.fill();
+    ctx.beginPath(); ctx.arc(cx0, cy0, 13.6, 0, Math.PI * 2); ctx.fillStyle = DB; ctx.fill();
+    T(ctx, mm + ':' + (ss < 10 ? '0' : '') + ss, cx0, cy0 - 4.2, { scale: 2, size: 11.5, color: '#ffffff', align: 'center' });
   }
   /** Arrow to the nearest unreached colleague when none is on screen. */
   function npcPointer(ctx, g) {
-    const L = g.level, p = L.player; let best = null, bd = 1e9;
+    const L = g.level, p = L.player; let best = null, bd = 1e9, above = false;
     for (const e of L.enemies) if (e instanceof NPC && e.reachable) {
-      const sx = e.x - g.camX;
-      if (sx > -8 && sx < W + 8) return;                      // someone is already in view
+      const sx = e.x - g.camX, sy = e.y - g.camY;
+      if (sx > -8 && sx < L.viewW + 8) {
+        if (sy > -8 && sy < L.viewH + 8) return;                 // someone is already in view
+        if (sy <= -8) above = true;                                // in this stretch, but on a higher floor
+        continue;
+      }
       const d = Math.abs(e.x - p.x); if (d < bd) { bd = d; best = e; }
+    }
+    if (above) {                                                   // nudge the player upstairs
+      const x = W / 2 - 26, bl = Math.floor(g.time * 3) % 2;
+      rr(ctx, x, 30, 52, 14, 7, bl ? B.blue : '#ffffff');
+      ctx.fillStyle = DB; ctx.beginPath(); ctx.moveTo(x + 10, 34); ctx.lineTo(x + 15, 41); ctx.lineTo(x + 5, 41); ctx.closePath(); ctx.fill();
+      T(ctx, 'Upstairs', x + 20, 34.4, { size: 6, bold: true, color: DB });
+      return;
     }
     if (!best) return;
     const left = best.x < g.camX, x = left ? 4 : W - 4 - 52;
@@ -793,14 +812,14 @@ const UI = (() => {
   }
   function hud(ctx, g) {
     const p = g.player, L = g.level;
-    // top bar
-    ctx.save();
-    ctx.shadowColor = 'rgba(9,13,72,0.22)'; ctx.shadowBlur = 6 * Gfx.state.S; ctx.shadowOffsetY = 1.5 * Gfx.state.S;
-    ctx.fillStyle = 'rgba(255,255,255,0.95)'; ctx.fillRect(0, 0, W, 26);
-    ctx.restore();
-    Gfx.brandBar(ctx, 0, 25, W, 1.5);
-
     const atk = g.levelData.mode === 'attack';
+    if (!atk) {   // top bar (classic levels only; score-attack draws its HUD straight onto the game)
+      ctx.save();
+      ctx.shadowColor = 'rgba(9,13,72,0.22)'; ctx.shadowBlur = 6 * Gfx.state.S; ctx.shadowOffsetY = 1.5 * Gfx.state.S;
+      ctx.fillStyle = 'rgba(255,255,255,0.95)'; ctx.fillRect(0, 0, W, 26);
+      ctx.restore();
+      Gfx.brandBar(ctx, 0, 25, W, 1.5);
+    }
     if (atk) hudRound(ctx, g);
     else {
       // name + integrity meter
@@ -844,10 +863,12 @@ const UI = (() => {
         cx += w + 3;
       }
     }
-    const an = L.attack ? Math.max(0, Math.floor(L.player.x / 16) - 3) + ' m' : L.currentArea.name.toUpperCase();
-    const aw = Math.ceil(Gfx.measure(an, { font: 'label' }).w) + 12;
-    rr(ctx, W - 6 - aw, 29, aw, 12, 6, 'rgba(255,255,255,0.94)');
-    T(ctx, an, W - 12, 31.2, { font: 'label', align: 'right', color: DB });
+    if (!L.attack) {
+      const an = L.currentArea.name.toUpperCase();
+      const aw = Math.ceil(Gfx.measure(an, { font: 'label' }).w) + 12;
+      rr(ctx, W - 6 - aw, 29, aw, 12, 6, 'rgba(255,255,255,0.94)');
+      T(ctx, an, W - 12, 31.2, { font: 'label', align: 'right', color: DB });
+    }
 
     // toast
     if (g.toastTimer > 0) {
@@ -876,25 +897,36 @@ const UI = (() => {
     let wy = 128;
     for (const c of [L.ceo, L.hr]) {
       if (!c.active) continue;
-      if (c.x - g.camX < -6) {
-        const bl = Math.floor(g.time * 4) % 2, w = c.hr ? 28 : 36;
-        rr(ctx, 3, wy, w, 14, 7, bl ? B.pink : '#D12B42');
-        Gfx.arrow(ctx, 14, wy + 7, '#ffffff', -6);
-        T(ctx, c.short, 19, wy + 3.6, { font: 'label', color: '#ffffff' });
+      const sx = c.x - g.camX, left = sx < -6, right = sx > L.viewW + 6;
+      if (left || right) {
+        const bl = Math.floor(g.time * 4) % 2, w = c.hr ? 28 : 36, x = left ? 3 : W - 3 - w;
+        rr(ctx, x, wy, w, 14, 7, bl ? B.pink : '#D12B42');
+        Gfx.arrow(ctx, left ? x + 11 : x + w - 11, wy + 7, '#ffffff', left ? -6 : 6);
+        T(ctx, c.short, left ? x + 16 : x + 7, wy + 3.6, { font: 'label', color: '#ffffff' });
         wy += 17;
       }
     }
   }
 
+  const PAUSE_BTNS = [{ id: 'resume', x: 168, y: 112, w: 144, h: 18, label: 'Resume', hint: 'P / Esc' },
+                      { id: 'end', x: 168, y: 134, w: 144, h: 18, label: 'End game' },
+                      { id: 'home', x: 168, y: 156, w: 144, h: 18, label: 'Home' }];
+  const CONFIRM_BTNS = [{ id: 'yes', x: 168, y: 142, w: 144, h: 18, label: 'Yes, show results' },
+                        { id: 'no', x: 168, y: 164, w: 144, h: 18, label: 'No, keep playing' }];
+  const pauseButtons = g => (g.pauseConfirm ? CONFIRM_BTNS : PAUSE_BTNS).map(b => ({ id: b.id, x: b.x, y: b.y, w: b.w, h: b.h }));
   function pause(ctx, g) {
     darkWash(ctx, 0.55);
-    Gfx.card(ctx, 150, 78, 180, 128);
-    eyebrow(ctx, 168, 94, 'TAKING FIVE');
-    T(ctx, 'Paused', 168, 112, { scale: 3, size: 20, color: DB });
-    T(ctx, g.playerName + ' is on a break', 168, 138, { raw: true, bold: true, color: DB });
-    Gfx.cta(ctx, 'Resume  ·  P / Esc', 168, 154, 144, 16, true, Math.round(Math.sin(g.menuTime * 6) * 1.2 + 1));
-    Gfx.cta(ctx, 'Quit to home  ·  Enter', 168, 174, 144, 16, false);
-    T(ctx, 'M to mute', 312, 195, { align: 'right', size: 6.4, color: SOFT });
+    Gfx.card(ctx, 150, 76, 180, g.pauseConfirm ? 126 : 126);
+    T(ctx, g.pauseConfirm ? 'Are you sure?' : 'Paused', 168, 92, { scale: 3, size: 20, color: DB });
+    const sel = g.pauseSel || 0, nudge = Math.round(Math.sin(g.menuTime * 6) * 1.2 + 1);
+    if (g.pauseConfirm) {
+      T(ctx, 'Leaving ends this game.', 168, 120, { size: 7.4, color: SOFT });
+      T(ctx, 'Your score will be saved.', 168, 130, { size: 7.4, bold: true, color: DB });
+      CONFIRM_BTNS.forEach((b, i) => Gfx.cta(ctx, b.label, b.x, b.y, b.w, b.h, i === (g.confirmSel || 0), i === (g.confirmSel || 0) ? nudge : 0));
+    } else {
+      PAUSE_BTNS.forEach((b, i) => Gfx.cta(ctx, b.label + (b.hint && i === sel ? '  \u00b7  ' + b.hint : ''), b.x, b.y, b.w, b.h, i === sel, i === sel ? nudge : 0));
+      T(ctx, 'M to mute', 312, 182, { align: 'right', size: 6.4, color: SOFT });
+    }
   }
 
   function gameOver(ctx, g) {
@@ -913,37 +945,32 @@ const UI = (() => {
     T(ctx, 'P / Esc for home', 244, 189, { size: 7, color: SOFT });
   }
 
+  /** End-of-round report: name, score, coins and leaderboard place, then three buttons. */
+  const ROUND_BTNS = [{ id: 'again', x: 52, y: 214, w: 140, h: 18, label: 'Play again' },
+                      { id: 'levels', x: 200, y: 214, w: 128, h: 18, label: 'Change level' },
+                      { id: 'home', x: 336, y: 214, w: 92, h: 18, label: 'Home' }];
   function completeRound(ctx, g) {
     backdrop(ctx, g, 0.8);
     const r = g.results;
     Gfx.card(ctx, 30, 10, 420, 252);
-    eyebrow(ctx, 52, 26, 'LEVEL ' + levelNum(g) + ' \u00b7 ' + g.levelData.title.toUpperCase());
-    T(ctx, 'Handover', 52, 46, { scale: 3, size: 20, color: DB });
-    T(ctx, 'complete!', 52 + Math.ceil(Gfx.measure('Handover ', { scale: 3, size: 20 }).w), 46, { scale: 3, size: 20, color: SB });
-    T(ctx, g.playerName + ' reached ' + r.reached + (r.reached === 1 ? ' colleague' : ' colleagues') + ' before the clock ran out.', 52, 73, { size: 8, color: SOFT, raw: true });
+    eyebrow(ctx, 52, 26, g.levelData.title.toUpperCase());
+    const w1 = r.early ? 'Game' : 'Time', w2 = r.early ? 'ended' : 'is up!';
+    T(ctx, w1, 52, 46, { scale: 3, size: 20, color: DB });
+    T(ctx, w2, 52 + Math.ceil(Gfx.measure(w1 + ' ', { scale: 3, size: 20 }).w), 46, { scale: 3, size: 20, color: SB });
     const rows = [
-      ['Delivered by', g.playerName, true],
-      ['Total reached', String(r.reached)],
-      ['Read rate', Math.round(r.readRate) + '%'],
-      ['Coins collected', String(r.coins)],
+      ['Name', g.playerName, DB, true],
+      ['Score', String(r.reached), SB],
+      ['Coins collected', String(r.coins), DB],
+      ['Leaderboard position', r.place ? '#' + r.place : 'Unranked', DB],
     ];
     rows.forEach((row, i) => {
-      const y = 92 + i * 16;
-      T(ctx, row[0], 52, y, { color: SOFT });
-      T(ctx, row[1], 246, y, { align: 'right', bold: true, raw: !!row[2], color: DB });
-      if (i < rows.length - 1) px(ctx, B.mid, 52, y + 12, 194, 0.6);
+      const y = 82 + i * 31;
+      T(ctx, row[0], 52, y + 7, { size: 8.5, color: SOFT });
+      T(ctx, row[1], 428, y + 3, { scale: 2, size: 14, color: row[2], align: 'right', raw: !!row[3] });
+      if (i < rows.length - 1) px(ctx, B.mid, 52, y + 25, 376, 0.6);
     });
-    rr(ctx, 268, 88, 162, 100, 10, B.tint);
-    T(ctx, 'COMMS RANK', 282, 100, { font: 'label', color: B.midBlue, spacing: 0.7 });
-    T(ctx, r.rank, 282, 112, { scale: 2, size: 12.5, color: DB });
-    T(ctx, String(r.reached), 282, 132, { scale: 3, size: 30, color: SB });
-    T(ctx, 'reached', 282 + Math.ceil(Gfx.measure(String(r.reached), { scale: 3, size: 30 }).w) + 6, 150, { size: 7.4, bold: true, color: SOFT });
-    if (r.place) T(ctx, 'Place #' + r.place + ' on the ' + g.levelData.title + ' leaderboard', 282, 172, { size: 6.8, bold: true, color: DB });
-    vbar(ctx, 52, 184, 22, OR);
-    T(ctx, 'Every colleague you reach makes handover safer.', 60, 185, { bold: true, color: DB });
-    T(ctx, 'Beat your best: same name, instant restart.', 60, 197, { color: SOFT });
-    Gfx.cta(ctx, 'Play again  \u00b7  Enter', 52, 214, 150, 18, true, Math.round(Math.sin(g.menuTime * 6) * 1.2 + 1));
-    Gfx.cta(ctx, 'Home  \u00b7  Esc', 212, 214, 96, 18, false);
+    const sel = g.completeSel || 0;
+    ROUND_BTNS.forEach((b, i) => Gfx.cta(ctx, b.label + (i === sel ? '  \u00b7  Enter' : ''), b.x, b.y, b.w, b.h, i === sel, i === sel ? Math.round(Math.sin(g.menuTime * 6) * 1.2 + 1) : 0));
   }
 
   function complete(ctx, g) {
@@ -951,7 +978,7 @@ const UI = (() => {
     backdrop(ctx, g, 0.8);
     const r = g.results;
     Gfx.card(ctx, 30, 10, 420, 252);
-    eyebrow(ctx, 52, 26, 'LEVEL ' + levelNum(g) + ' · ' + g.levelData.title.toUpperCase());
+    eyebrow(ctx, 52, 26, g.levelData.title.toUpperCase());
     T(ctx, 'Message', 52, 46, { scale: 3, size: 20, color: DB });
     T(ctx, 'delivered!', 52 + Math.ceil(Gfx.measure('Message ', { scale: 3, size: 20 }).w), 46, { scale: 3, size: 20, color: SB });
     T(ctx, '“' + g.levelData.goalLine + '” — the ' + (g.levelData.goalName || 'nurse'), 52, 73, { size: 8, color: SOFT });

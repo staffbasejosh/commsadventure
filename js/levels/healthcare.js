@@ -1,6 +1,6 @@
 'use strict';
 /* ==========================================================================
-   levels/healthcare.js - Level 1: Healthcare.
+   levels/healthcare.js - Healthcare.
 
    A level is ONE self-contained file that registers itself on LEVELS.
    Copy this file to add a new industry (see README "Adding a level").
@@ -21,146 +21,18 @@
    Gaps in the floor rows are "Lift out of service" shafts.
    ========================================================================== */
 (function () {
-  // ---- endless hospital ------------------------------------------------------
-  // Chunk 0 (the entrance) is hand-built; every further 32-column chunk is generated on demand by
-  // generate(k) as you run, so the hospital never ends. Three tiers you can roam: the main floor
-  // (row 15), mezzanine platforms (row 12), an upper walkway (row 9) and high perches (row 6).
-  // Tiers are always linked by overlapping platforms (3 tiles apart), so every platform is reachable.
-  const CW = 32, H = 17, SOL = '#XBDVL?PETKhlHJuR';
-  const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
-  const pick = a => a[rnd(0, a.length - 1)];
-  const ROLE_POOL = ['nurse', 'doctor', 'porter', 'pharmacist', 'cleaner'];
-  const SIGNS = ['OUTPATIENTS', 'X-RAY', 'PHARMACY', 'WARD >>', 'THEATRES', 'LAB', 'CAFE', 'LIFTS', 'ICU', 'STAFF ONLY', 'MIND THE LINEN', 'RECOVERY', 'MATERNITY', 'A&E'];
-  const SIGN_COLORS = ['#2d8f87', '#c0392b', '#5b7fa6', '#2f9d62', '#46607a'];
-
-  function newChunk(k) {
-    const c0 = k * CW;
-    const g = Array.from({ length: H }, () => Array(CW).fill('.'));
-    for (let c = 0; c < CW; c++) { g[15][c] = '#'; g[16][c] = '#'; }
-    const put = (c, r, str) => { for (let i = 0; i < str.length; i++) if (c + i >= 0 && c + i < CW) g[r][c + i] = str[i]; };
-    const plat = (a, b, r) => put(a, r, '-'.repeat(b - a + 1));
-    const room = (c, w) => { for (let r = 12; r <= 14; r++) put(c, r, 'R'.repeat(w)); };
-    const ch = { c0, g, put, plat, room, ents: [], npcs: [], sp: [], signs: [] };
-    return ch;
-  }
-  // Surface at (x,y) with two clear rows above it (room for a person).
-  const clearAbove = (g, x, y) => x >= 0 && x < CW && y >= 2 && (g[y][x] === '-' || SOL.includes(g[y][x])) &&
-    !SOL.includes(g[y - 1][x]) && g[y - 1][x] !== '-' && !SOL.includes(g[y - 2][x]);
-  const groundOk = (g, x) => x >= 1 && x < CW - 1 && [x - 1, x, x + 1].every(cx => g[15][cx] === '#' && !SOL.includes(g[14][cx]) && !SOL.includes(g[13][cx]));
-  const addNpc = (ch, x, y, mode, role) => { if (clearAbove(ch.g, x, y)) ch.npcs.push({ role: role || pick(ROLE_POOL), x: ch.c0 + x, y, mode, range: 2 }); };
-  const addSp = (ch, x, y) => { if (clearAbove(ch.g, x, y)) ch.sp.push({ x: ch.c0 + x, y, kind: y === 15 ? 'ground' : 'high' }); };
-  const addObstacle = (ch, x, range, forklift) => {
-    if (!groundOk(ch.g, x)) return;
-    ch.ents.push({ type: 'trolley', variant: pick(['gurney', 'meds', 'linen']), x: ch.c0 + x, range });
-  };
-
-  // One bay = 16 columns; b0 is its first column. d (0..1) is the difficulty: shorter platforms, fewer coins,
-  // and more obstacles up on the platforms the further you get.
-  let coinAcc = 0;   // carries the fractional coin chance across trails so the thinning is smooth, not lumpy
-  function bay(ch, b0, type, pit, d, k) {
-    const { put, plat, room, g } = ch;
-    // coins buy time, so they thin out slowly over ~18 stretches (never to zero): both how often a trail appears and how long it is
-    const cd = Math.min(1, Math.max(0, (k - 1) / 18));
-    const cg = (c, r, n) => { coinAcc += 0.9 - 0.5 * cd; if (coinAcc >= 1) { coinAcc -= 1; put(c, r, 'c'.repeat(Math.max(1, Math.round(n * (1 - 0.35 * cd))))); } };
-    // vending machines (2x2, solid) standing on the upper platforms: hop over them. Trolleys stay on the floor.
-    const platObs = (x0, x1, row) => {
-      if (d < 0.08 || x1 - x0 < 4) return;
-      const mid = Math.floor((x0 + x1) / 2);
-      if (Math.random() < 0.25 + 0.65 * d) {
-        const sx = mid + pick([-1, 0]); put(sx, row - 2, 'VV'); put(sx, row - 1, 'VV');
-        if (d > 0.5 && x1 - x0 >= 7 && Math.random() < 0.5) { const ex = Math.random() < 0.5 ? x0 : x1 - 1; if (Math.abs(ex - sx) >= 3) { put(ex, row - 2, 'VV'); put(ex, row - 1, 'VV'); } }
-      }
-    };
-    if (type === 'tower') {
-      const c = b0 + 1 + rnd(0, 2), sh = Math.round(2 * d);
-      const m = 5 - sh, w0 = m - 1, w1 = w0 + 7 - sh;                       // mezzanine c..c+m, walkway c+w0..c+w1
-      plat(c, c + m, 12); plat(c + w0, c + w1, 9);
-      cg(c + 1, 11, 3); cg(c + w0 + 2, 8, 3);
-      const perch = Math.random() < 0.7;
-      if (perch) { plat(c + w0 + 3, c + w1 - 1, 6); cg(c + w0 + 4, 5, 2); }
-      platObs(c, c + m, 12); platObs(c + w0 + 2, c + w1, 9);
-      addNpc(ch, c + 1, 12, 'stand'); addNpc(ch, c + w0 + 3, 9, Math.random() < 0.5 ? 'roam' : 'stand');
-      if (perch) addNpc(ch, c + w0 + 4, 6, 'stand', Math.random() < 0.55 ? 'nurseLead' : undefined);
-      addSp(ch, c + 2, 12); addSp(ch, c + w0 + 2, 9); addSp(ch, c + w1 - 1, 9); if (perch) { addSp(ch, c + w0 + 4, 6); addSp(ch, c + w0 + 5, 6); }
-      // ground: a closed room, then an obstacle (or a pit instead of the obstacle)
-      const rc = c + m + 2;
-      room(rc, 3); addNpc(ch, rc + 1, 12, 'stand'); addSp(ch, rc + 1, 12);
-      if (pit) { for (let x = b0 + 13; x <= b0 + 15; x++) { g[15][x] = '.'; g[16][x] = '.'; } }
-      else if (rc + 5 <= b0 + 14) addObstacle(ch, rc + 5, 1, Math.random() < 0.35 + 0.3 * d);
-      addObstacle(ch, c + 1, 1, false);
-      addNpc(ch, c + 1, 15, 'stand'); addNpc(ch, rc - 1 > c + m ? rc - 1 : c + m + 1, 15, 'roam');
-    } else if (type === 'twin') {
-      const c = b0 + 1, a = 6 - Math.round(2 * d);                           // mezzanine length
-      plat(c, c + a - 1, 12); plat(c + 8, c + 7 + a, 12); plat(c + a - 2, c + 9, 9);
-      const pc = Math.floor((c + a - 2 + c + 9) / 2); plat(pc - 1, pc + 1, 6);
-      cg(pc, 5, 2); cg(c + 1, 11, 3); cg(c + 9, 11, 3);
-      platObs(c, c + a - 1, 12); platObs(c + 8, c + 7 + a, 12); platObs(c + a - 2, c + 9, 9);
-      addNpc(ch, c + 1, 12, 'stand'); addNpc(ch, c + 9, 12, 'stand'); addNpc(ch, pc, 9, 'roam');
-      addNpc(ch, pc, 6, 'stand', Math.random() < 0.6 ? 'nurseLead' : undefined);
-      addSp(ch, c + 2, 12); addSp(ch, c + 10, 12); addSp(ch, pc - 1, 9); addSp(ch, pc + 1, 9); addSp(ch, pc, 6);
-      addObstacle(ch, c + 7, 2, Math.random() < 0.4 + 0.3 * d);
-      addNpc(ch, c + 6, 15, 'stand');
-    } else { // hall: closed room, stepping platforms, a trolley in the aisle
-      room(b0 + 2, 4);
-      plat(b0 + 7, b0 + 12, 12); plat(b0 + 10, b0 + 14, 9); plat(b0 + 11, b0 + 14, 6);
-      cg(b0 + 8, 11, 3); cg(b0 + 12, 8, 3);
-      platObs(b0 + 7, b0 + 12, 12); platObs(b0 + 10, b0 + 14, 9);
-      if (Math.random() < 0.5) put(b0 + 14, 11, pick(['?', '?', 'P', 'E', 'T', 'K']));
-      addNpc(ch, b0 + 3, 12, 'stand'); addNpc(ch, b0 + 9, 12, 'roam'); addNpc(ch, b0 + 12, 9, 'stand');
-      addNpc(ch, b0 + 12, 6, 'stand', Math.random() < 0.5 ? 'nurseLead' : undefined);
-      addSp(ch, b0 + 4, 12); addSp(ch, b0 + 8, 12); addSp(ch, b0 + 11, 9); addSp(ch, b0 + 13, 9); addSp(ch, b0 + 12, 6);
-      addObstacle(ch, b0 + 9, 1, true);
-      addNpc(ch, b0 + 14, 15, 'stand');
-    }
-    for (const x of [b0, b0 + 15]) addSp(ch, x, 15);
-  }
-
-  function finishChunk(ch) {
-    ch.signs.push({ col: ch.c0 + rnd(3, 28), text: pick(SIGNS), color: pick(SIGN_COLORS) });
-    return { rows: ch.g.map(r => r.join('')), entities: ch.ents, npcs: ch.npcs, spawnPoints: ch.sp, signs: ch.signs, tunnels: ch.tunnels || [] };
-  }
-
-  // Choke point: a staff corridor with a low ceiling (no platforms, no big jumps), trolley traffic and
-  // colleagues in the way. Moving through it is slower (see C.ATTACK.TUNNEL_SPEED_MULT).
-  function tunnelChunk(k, d) {
-    const ch = newChunk(k), { g, put } = ch;
-    const T0 = 3, T1 = 28;
-    for (let r = 0; r <= 11; r++) for (let c = T0; c <= T1; c++) g[r][c] = r === 11 ? 'Z' : 'Y';
-    const lounge = (tunnelCount++ % 2) === 1;   // alternate Staff Corridor / Staff Lounge
-    ch.tunnels = [{ from: ch.c0 + T0, to: ch.c0 + T1, name: lounge ? 'Staff Lounge' : 'Staff Corridor', sub: lounge ? 'Break time: wade through' : 'Crowded: push through' }];
-    const n = 2 + (d > 0.4 ? 1 : 0) + (d > 0.8 ? 1 : 0);
-    [8, 14, 20, 25].slice(0, n).forEach((x, i) => addObstacle(ch, x, i % 2 ? 2 : 1, false));
-    [[6, 'stand'], [11, 'stand'], [17, 'stand', 'nurseLead'], [23, 'roam'], [27, 'stand']].forEach(([x, m, r]) => addNpc(ch, x, 15, m, r));
-    for (const x of [1, 6, 11, 17, 23, 27, 30]) addSp(ch, x, 15);
-    put(12, 14, 'cc'); if (d < 0.6) put(21, 14, 'cc');
-    return finishChunk(ch);
-  }
-  let nextTunnel = 6, tunnelCount = 0;
-
-  function generate(k) {
-    if (k <= 1) { coinAcc = 0; nextTunnel = rnd(5, 6); tunnelCount = 0; }
-    if (tunnelCount < 2 && k >= nextTunnel) { nextTunnel = k + rnd(...C.ATTACK.CORRIDOR_GAP); return tunnelChunk(k, Math.min(1, Math.max(0, (k - 1) / 9))); }   // two corridors only
-    const ch = newChunk(k);
-    const pick3 = () => { const r = Math.random(); return r < 0.45 ? 'tower' : r < 0.75 ? 'twin' : 'hall'; };
-    const d = Math.min(1, Math.max(0, (k - 1) / 9));     // 0 at the start, full difficulty ~10 chunks (~320 tiles) in
-    const tA = pick3(), tB = pick3();
-    bay(ch, 0, tA, tA === 'tower' && Math.random() < 0.1 + 0.4 * d, d, k);
-    bay(ch, 16, tB, tB === 'tower' && Math.random() < 0.3 * d, d, k);
-    return finishChunk(ch);
-  }
-
-  // Chunk 0: the Main Entrance, hand-built with a nurse a few steps from the start.
-  const first = newChunk(0);
-  {
-    const { put, plat } = first;
-    put(3, 14, 'S'); put(6, 14, 'ccc'); put(9, 11, '?.?.?'); plat(17, 22, 12); put(18, 11, 'ccc');
-    plat(21, 27, 9); put(22, 8, 'ccc'); put(27, 14, 'w');
-    plat(26, 31, 12); put(28, 11, 'ccc');
-    first.ents.push({ type: 'trolley', variant: 'gurney', x: 29, range: 1 });
-  }
-  const map = first.g.map(r => r.join(''));
-  first.signs.push({ col: 8, text: 'MAIN ENTRANCE' });
-  const startSigns = first.signs;
+  // ---- endless hospital: the shared generator (js/levels/endless.js) with the hospital's cast and obstacles
+  const { rnd, pick } = Endless;
+  const { generate, map, startSigns, first, CW } = Endless.make({
+    rolePool: ['nurse', 'doctor', 'porter', 'pharmacist', 'cleaner'],
+    leadRole: 'nurseLead',
+    signs: ['OUTPATIENTS', 'X-RAY', 'PHARMACY', 'WARD >>', 'THEATRES', 'LAB', 'CAFE', 'LIFTS', 'ICU', 'STAFF ONLY', 'MIND THE LINEN', 'RECOVERY', 'MATERNITY', 'A&E'],
+    signColors: ['#2d8f87', '#c0392b', '#5b7fa6', '#2f9d62', '#46607a'],
+    obstacle: (ch, x, range) => ch.ents.push({ type: 'trolley', variant: pick(['gurney', 'meds', 'linen']), x: ch.c0 + x, range }),
+    firstObstacle: first => first.ents.push({ type: 'trolley', variant: 'gurney', x: 29, range: 1 }),
+    startSign: 'MAIN ENTRANCE',
+    tunnelNames: [['Staff Corridor', 'Crowded: push through'], ['Staff Lounge', 'Break time: wade through']],
+  });
 
   // ------------------------------------------------------------------ art
   let S = null; // sprite cache
@@ -175,11 +47,11 @@
     S = {};
     // floor
     S.floorTop = [0, 1].map(v => mk(16, 16, (x, R) => {
-      R(v ? '#d3e4e2' : '#dcebe9', 0, 0, 16, 16); R('#ffffff', 0, 0, 16, 1); R('#f1f9f8', 0, 1, 16, 1);
+      R(v ? '#b4cecb' : '#bcd5d2', 0, 0, 16, 16); R('#ffffff', 0, 0, 16, 1); R('#f1f9f8', 0, 1, 16, 1);
       R('#a9c4c1', 0, 2, 16, 1); R('#b7cfcc', 0, 0, 1, 16); R('#e9f4f3', 3, 6, 4, 1); R('#c6dad7', 9, 10, 5, 1);
     }));
     S.floorBody = [0, 1].map(v => mk(16, 16, (x, R) => {
-      R(v ? '#bdd3d0' : '#c7dbd8', 0, 0, 16, 16); R('#a9c4c1', 0, 0, 1, 16); R('#a9c4c1', 0, 15, 16, 1);
+      R(v ? '#a2bfbc' : '#abc6c3', 0, 0, 16, 16); R('#a9c4c1', 0, 0, 1, 16); R('#a9c4c1', 0, 15, 16, 1);
       R('#d0e2df', 4, 4, 3, 1); R('#b2cac7', 9, 9, 4, 1);
     }));
     S.crate = mk(16, 16, (x, R) => {
@@ -257,12 +129,9 @@
         R('#ffffff', 0, 0, 16, 4); R('#e8f1f0', 0, 3, 16, 1); R('#5fb8b0', 0, 4, 16, 2); R('#8a9a99', 0, 6, 16, 1);
         if (L) { R('#5fb8b0', 0, 0, 3, 4); R('#8a9a99', 2, 7, 2, 5); R('#37474f', 1, 12, 4, 3); R('#cfd8dc', 2, 13, 2, 1); }
         if (Rr) { R('#8a9a99', 12, 7, 2, 5); R('#37474f', 11, 12, 4, 3); R('#cfd8dc', 12, 13, 2, 1); }
-      } else if (style === 1) { // supply trolley
-        R('#b0bec5', 0, 0, 16, 2); R('#eceff1', 0, 0, 16, 1); R('#78909c', 0, 2, 16, 1); R('#5fb8b0', 0, 3, 16, 1);
-        R('#cfd8dc', 0, 8, 16, 1);
-        if (L) { R('#90a4ae', 1, 3, 2, 10); R('#37474f', 0, 13, 4, 3); }
-        if (Rr) { R('#90a4ae', 13, 3, 2, 10); R('#37474f', 12, 13, 4, 3); }
-        if (!L && !Rr) { R('#ffffff', 3, 3, 3, 5); R('#8fd0c8', 9, 4, 3, 4); }
+      } else if (style === 1) { // wall-mounted medical cabinet
+        R('#ffffff', 0, 0, 16, 2); R('#37474f', 0, 2, 16, 11); R('#7fb7b1', 1, 3, 14, 9); R('#9fd0ca', 1, 3, 14, 2); R('#37474f', 7, 3, 2, 9);
+        R('#ffffff', 5, 6, 1, 3); R('#ffffff', 10, 6, 1, 3); R('#5a9a94', 1, 11, 14, 1);
       } else { // nurse station counter
         R('#ffffff', 0, 0, 16, 3); R('#cfd8dc', 0, 3, 16, 1); R('#2d8f87', 0, 4, 16, 10); R('#5fb8b0', 0, 4, 16, 2);
         R('#1d6b65', 0, 13, 16, 1); R('#ffffff', 6, 7, 4, 4); R('#e03131', 7, 8, 2, 2); if (L) R('#1d6b65', 0, 4, 1, 10); if (Rr) R('#1d6b65', 15, 4, 1, 10);
@@ -298,68 +167,91 @@
     S.pu = { speed: pu('speed'), sponsor: pu('sponsor'), djump: pu('djump'), push: pu('push') };
   }
 
-  // ---- background decor drawers (all drawn at layer coordinates, x = left, y = top)
+  // ---- background decor drawers. Everything stands on a floor line `f` and is drawn at human scale
+  // (a person is about 24px, a door 36px), so the player walks along the wall instead of in front of a poster.
+  const rect = (c, col, x, y, w, h) => { c.fillStyle = col; c.fillRect(x, y, w, h); };
+  const fitSize = (str, size, maxW, o) => { const w = Gfx.measure(str, Object.assign({ size, raw: true }, o)).w; return w > maxW ? Math.max(3.2, size * maxW / w) : size; };
   const D = {
-    window(c, x, y) {
-      const R = (col, a, b, w, h) => { c.fillStyle = col; c.fillRect(x + a, y + b, w, h); };
-      R('#ffffff', 0, 0, 52, 62); R('#c3d8d5', 1, 1, 50, 60); R('#cfeaf7', 3, 3, 46, 56); R('#e8f6fc', 3, 3, 46, 18);
-      R('#b4d2e0', 3, 38, 8, 21); R('#a3c3d3', 13, 30, 10, 29); R('#b4d2e0', 25, 42, 9, 17); R('#a3c3d3', 36, 34, 13, 25);
-      R('#ffffff', 8, 9, 10, 3); R('#ffffff', 11, 7, 6, 2); R('#ffffff', 32, 13, 12, 3);
-      R('#ffffff', 24, 3, 3, 56); R('#ffffff', 3, 30, 46, 3); R('#c3d8d5', 0, 62, 52, 3);
+    door(c, x, f) {
+      const y = f - 36;
+      rect(c, '#9fb4b8', x, y, 24, 36); rect(c, '#cfe3e1', x + 2, y + 2, 10, 34); rect(c, '#c1d8d6', x + 12, y + 2, 10, 34);
+      rect(c, '#8fa9ad', x + 11, y + 2, 2, 34); rect(c, '#a9d6ee', x + 4, y + 6, 6, 10); rect(c, '#a9d6ee', x + 14, y + 6, 6, 10);
+      rect(c, '#e8f6fc', x + 4, y + 6, 6, 2); rect(c, '#e8f6fc', x + 14, y + 6, 6, 2);
+      rect(c, '#78909c', x + 8, y + 20, 1, 6); rect(c, '#78909c', x + 15, y + 20, 1, 6); rect(c, '#9fb4b8', x + 2, f - 5, 20, 4);
     },
-    door(c, x, y) {
-      const R = (col, a, b, w, h) => { c.fillStyle = col; c.fillRect(x + a, y + b, w, h); };
-      R('#ffffff', 0, 0, 38, 98); R('#9fc7c3', 2, 2, 34, 96); R('#8ab8b3', 2, 2, 17, 96); R('#bfdcd8', 19, 2, 1, 96);
-      R('#e8f6fc', 6, 12, 9, 20); R('#e8f6fc', 23, 12, 9, 20); R('#cfd8dc', 16, 54, 2, 8); R('#cfd8dc', 21, 54, 2, 8);
-      R('#37474f', 12, -8, 14, 6); Gfx.text(c, 'WARD', x + 13, y - 7, { color: '#ffffff' });
+    window(c, x, f) {
+      const y = f - 38;
+      rect(c, '#ffffff', x, y, 32, 26); rect(c, '#cfeaf7', x + 2, y + 2, 28, 22); rect(c, '#e8f6fc', x + 2, y + 2, 28, 8);
+      rect(c, '#a3c3d3', x + 3, y + 14, 5, 10); rect(c, '#b4d2e0', x + 10, y + 11, 6, 13); rect(c, '#a3c3d3', x + 18, y + 15, 5, 9); rect(c, '#b4d2e0', x + 24, y + 12, 5, 12);
+      rect(c, '#ffffff', x + 6, y + 5, 7, 2); rect(c, '#ffffff', x + 20, y + 6, 6, 2);
+      rect(c, '#ffffff', x + 15, y + 2, 2, 22); rect(c, '#c3d8d5', x - 2, y + 26, 36, 2);
     },
-    clock(c, x, y, t) {
-      Gfx.disc(c, x + 12, y + 12, 12, '#37474f'); Gfx.disc(c, x + 12, y + 12, 10, '#ffffff');
+    board(c, x, y, n) {   // y = top of the board
+      const nt = C.NOTICES[n % C.NOTICES.length], w = 46, h = 30;
+      rect(c, 'rgba(0,0,0,0.10)', x + 1, y + h, w, 2);
+      rect(c, '#7d8f93', x, y, w, h); rect(c, '#ffffff', x + 1, y + 1, w - 2, h - 2); rect(c, nt.color, x + 1, y + 1, w - 2, 8);
+      const ts = fitSize(nt.tag, 4.6, w - 8, { bold: true });
+      Gfx.text(c, nt.tag, x + w / 2, y + 1 + (8 - ts * 0.73) / 2, { raw: true, bold: true, size: ts, color: '#ffffff', align: 'center', spacing: 0.2 });
+      nt.lines.forEach((l, i) => {
+        const s = fitSize(l, 4.6, w - 6, { bold: true });
+        Gfx.text(c, l, x + w / 2, y + 12 + i * 6, { raw: true, bold: true, size: s, color: '#090D48', align: 'center' });
+      });
+      rect(c, '#e8453c', x + 2, y + 2, 1, 1); rect(c, '#e8453c', x + w - 3, y + 2, 1, 1);
+    },
+    clock(c, x, f, t) {
+      const cx = x + 7, cy = f - 30;
+      Gfx.disc(c, cx, cy, 7, '#37474f'); Gfx.disc(c, cx, cy, 6, '#ffffff');
       c.fillStyle = '#37474f';
+      for (let i = 0; i < 12; i += 3) c.fillRect(cx + Math.round(Math.sin(i / 12 * 6.283) * 5), cy - Math.round(Math.cos(i / 12 * 6.283) * 5), 1, 1);
       const a = t * 0.2, b = t * 0.0167;
-      for (let i = 0; i < 12; i++) c.fillRect(x + 12 + Math.round(Math.sin(i / 12 * 6.283) * 8), y + 12 - Math.round(Math.cos(i / 12 * 6.283) * 8), 1, 1);
-      for (let i = 1; i <= 5; i++) c.fillRect(x + 12 + Math.round(Math.sin(b) * i * 1.3), y + 12 - Math.round(Math.cos(b) * i * 1.3), 1, 1);
+      for (let i = 1; i <= 3; i++) c.fillRect(cx + Math.round(Math.sin(b) * i), cy - Math.round(Math.cos(b) * i), 1, 1);
       c.fillStyle = '#e03131';
-      for (let i = 1; i <= 8; i++) c.fillRect(x + 12 + Math.round(Math.sin(a) * i), y + 12 - Math.round(Math.cos(a) * i), 1, 1);
+      for (let i = 1; i <= 5; i++) c.fillRect(cx + Math.round(Math.sin(a) * i), cy - Math.round(Math.cos(a) * i), 1, 1);
     },
-    board(c, x, y) {
-      const R = (col, a, b, w, h) => { c.fillStyle = col; c.fillRect(x + a, y + b, w, h); };
-      R('#8a6234', 0, 0, 44, 30); R('#e9d9b0', 2, 2, 40, 26);
-      R('#ffffff', 4, 4, 10, 10); R('#8fd0c8', 17, 5, 10, 8); R('#ffd9d6', 30, 4, 10, 12); R('#ffffff', 6, 17, 12, 8); R('#fff3b0', 22, 18, 14, 7);
-      R('#e03131', 8, 3, 1, 1); R('#2d8f87', 20, 4, 1, 1); R('#37474f', 6, 6, 6, 1); R('#37474f', 6, 9, 5, 1);
+    cross(c, x, f) {
+      Gfx.disc(c, x + 8, f - 28, 8, '#ffffff'); Gfx.disc(c, x + 8, f - 28, 7, '#5fb8b0');
+      rect(c, '#ffffff', x + 6, f - 33, 4, 10); rect(c, '#ffffff', x + 3, f - 30, 10, 4);
     },
-    cross(c, x, y) {
-      Gfx.disc(c, x + 16, y + 16, 16, '#ffffff'); Gfx.disc(c, x + 16, y + 16, 14, '#5fb8b0');
-      c.fillStyle = '#ffffff'; c.fillRect(x + 13, y + 6, 6, 20); c.fillRect(x + 6, y + 13, 20, 6);
+    xray(c, x, f) {
+      const y = f - 32;
+      rect(c, '#263238', x, y, 28, 22); rect(c, '#d6efff', x + 2, y + 2, 24, 18); rect(c, '#b7dcf5', x + 2, y + 2, 24, 4);
+      rect(c, '#ffffff', x + 13, y + 4, 2, 14); for (let i = 0; i < 4; i++) rect(c, '#ffffff', x + 8, y + 6 + i * 3, 12, 1);
+      rect(c, '#9fc4de', x + 6, y + 6, 1, 10); rect(c, '#9fc4de', x + 21, y + 6, 1, 10);
     },
-    xray(c, x, y) {
-      const R = (col, a, b, w, h) => { c.fillStyle = col; c.fillRect(x + a, y + b, w, h); };
-      R('#263238', 0, 0, 40, 34); R('#d6efff', 2, 2, 36, 30); R('#b7dcf5', 2, 2, 36, 5);
-      R('#ffffff', 19, 5, 2, 24); for (let i = 0; i < 5; i++) { R('#ffffff', 11, 9 + i * 4, 18, 1); }
-      R('#9fc4de', 9, 9, 2, 16); R('#9fc4de', 29, 9, 2, 16); R('#ff7b72', 17, 3, 6, 2);
+    plant(c, x, f) {
+      rect(c, '#b07a52', x + 3, f - 8, 10, 8); rect(c, '#8a5a36', x + 3, f - 8, 10, 1);
+      rect(c, '#3f9b5a', x + 6, f - 22, 4, 14); rect(c, '#58c277', x + 2, f - 18, 4, 6); rect(c, '#58c277', x + 10, f - 19, 4, 6); rect(c, '#3f9b5a', x, f - 13, 4, 3); rect(c, '#3f9b5a', x + 12, f - 12, 4, 3);
     },
-    shelf(c, x, y) {
-      const R = (col, a, b, w, h) => { c.fillStyle = col; c.fillRect(x + a, y + b, w, h); };
-      R('#cfd8dc', 0, 0, 56, 74); R('#eceff1', 2, 2, 52, 70);
-      const cols = ['#e8453c', '#41c47b', '#f1c232', '#5db7ff', '#ffffff', '#ff8a4c'];
-      for (let r = 0; r < 4; r++) { R('#90a4ae', 2, 16 + r * 18, 52, 2); for (let i = 0; i < 8; i++) R(cols[(i + r * 2) % 6], 4 + i * 6, 6 + r * 18, 4, 10); }
-      R('#41c47b', 20, 0, 16, 6); R('#ffffff', 27, 1, 2, 4); R('#ffffff', 25, 2, 6, 2);
+    bench(c, x, f) {
+      rect(c, '#5fb8b0', x, f - 12, 34, 5); rect(c, '#2d8f87', x, f - 7, 34, 2); rect(c, '#78909c', x + 3, f - 5, 2, 5); rect(c, '#78909c', x + 29, f - 5, 2, 5);
+      rect(c, '#5fb8b0', x, f - 20, 34, 6); rect(c, '#2d8f87', x, f - 15, 34, 1);
     },
-    plant(c, x, y) {
-      const R = (col, a, b, w, h) => { c.fillStyle = col; c.fillRect(x + a, y + b, w, h); };
-      R('#b07a52', 4, 24, 14, 12); R('#8a5a36', 4, 24, 14, 2);
-      R('#3f9b5a', 8, 6, 6, 18); R('#58c277', 3, 12, 6, 8); R('#58c277', 13, 10, 6, 8); R('#3f9b5a', 1, 18, 5, 5); R('#3f9b5a', 16, 17, 5, 5);
-    },
-    bench(c, x, y) {
-      const R = (col, a, b, w, h) => { c.fillStyle = col; c.fillRect(x + a, y + b, w, h); };
-      R('#5fb8b0', 0, 0, 44, 8); R('#2d8f87', 0, 8, 44, 4); R('#78909c', 3, 12, 3, 10); R('#78909c', 38, 12, 3, 10);
-    },
-    slidingDoor(c, x, y) {
-      const R = (col, a, b, w, h) => { c.fillStyle = col; c.fillRect(x + a, y + b, w, h); };
-      R('#78909c', 0, 0, 70, 104); R('#cfeaf7', 3, 3, 31, 101); R('#cfeaf7', 36, 3, 31, 101); R('#e8f6fc', 3, 3, 31, 24); R('#e8f6fc', 36, 3, 31, 24);
-      R('#ffffff', 34, 3, 2, 101); R('#37474f', 4, 50, 1, 14); R('#37474f', 65, 50, 1, 14); R('#e03131', 28, -9, 14, 8); R('#ffffff', 34, -8, 2, 6); R('#ffffff', 31, -6, 8, 2);
+    sanitiser(c, x, f) {
+      rect(c, '#e8453c', x, f - 18, 5, 12); rect(c, '#ffffff', x + 1, f - 15, 3, 4); rect(c, '#9fb4b8', x + 1, f - 20, 3, 2);
     },
   };
+  const DECOR = ['door', 'window', 'plant', 'door', 'window', 'xray', 'bench', 'clock', 'window', 'door', 'cross', 'board'];   // a noticeboard is also forced every 5th bay (below)
+  const DECOR_W = { door: 24, window: 32, board: 46, clock: 14, cross: 16, xray: 28, plant: 16, bench: 34, sanitiser: 5 };
+  const hash = (a, b) => { let h = Math.imul(a | 0, 0x45d9f3b) ^ Math.imul((b | 0) + 7, 0x27d4eb2d); h ^= h >>> 15; h = Math.imul(h, 0x2c1b3c6d); h ^= h >>> 12; return h >>> 0; };
+  const STOREYS = [240, 192, 144, 96];   // floor line of each tier (row 15, 12, 9, 6)
+
+  // Noticeboards hang high on the wall, in a spot with no tiles (platforms, blocks, rooms, machines) in or just below it,
+  // so no colleague, trolley or platform can stand in front of one. Decided once per slot from the generated map.
+  const boardCache = new WeakMap();
+  function boardSpot(L, n, P) {
+    let m = boardCache.get(L); if (!m) { m = new Map(); boardCache.set(L, m); }
+    if (m.has(n)) return m.get(n);
+    let found = null;
+    for (const off of [24, 72, 112]) for (const top of [158, 126, 94]) {
+      const x = n * P + off, c0 = Math.floor(x / 16) - 1, c1 = Math.floor((x + 46) / 16) + 1, r0 = Math.floor(top / 16), r1 = Math.floor((top + 62) / 16);
+      let ok = true;
+      for (let c = c0; c <= c1 && ok; c++) for (let r = r0; r <= r1 && ok; r++) { const ch = L.charAt(c, r); if (ch !== '.' && ch !== 'c') ok = false; }
+      if (ok) { found = { x, y: top }; break; }
+    }
+    // only cache once the stretch has been generated (columns beyond the map read as empty)
+    if ((n * P + 200) / 16 < L.cols) m.set(n, found);
+    return found;
+  }
 
   const art = {
     areaStyle: {
@@ -406,43 +298,41 @@
     drawPuddle(ctx, x, y) { ctx.drawImage(S.puddle, Math.round(x), Math.round(y)); },
 
     /** Parallax hospital corridor. camX in world px. */
-    drawBackground(ctx, camX, time, areaKey) {
-      const W = C.VIEW_W, H = C.VIEW_H, R = Gfx.px;
+    drawBackground(ctx, camX, time, areaKey, camY, L) {
+      // Drawn in WORLD coordinates (the level has already scaled and scrolled the context), only what is on screen.
+      camY = camY || 0;
+      const W = Math.ceil(C.VIEW_W / C.ZOOM) + 2, H = Math.ceil(C.VIEW_H / C.ZOOM) + 2, R = Gfx.px;
+      const y0 = camY, y1 = camY + H, cx = Math.round(camX);
       const st = this.areaStyle[areaKey] || this.areaStyle.corridor;
-      ST.wall = Gfx.lerpColor(ST.wall, st.wall, 0.04);
+      ST.wall = '#e6efee';
       ST.accent = Gfx.lerpColor(ST.accent, st.accent, 0.04);
-      R(ctx, ST.wall, 0, 0, W, H);
-      // ceiling band, world-locked light panels
-      R(ctx, '#f2f7f7', 0, 0, W, 26); R(ctx, '#c9dcda', 0, 26, W, 2); R(ctx, '#aac6c3', 0, 28, W, 1);
-      const lp = 112, l0 = -(Math.round(camX * 0.9) % lp);
-      for (let x = l0 - lp; x < W + lp; x += lp) { R(ctx, '#d5e5e3', x + 26, 8, 52, 9); R(ctx, '#fffdea', x + 28, 9, 48, 7); R(ctx, 'rgba(255,253,220,0.16)', x + 18, 18, 68, 36); }
-      // far layer (windows), parallax 0.25
-      const fp = 170, f0 = -(Math.round(camX * 0.25) % fp);
-      for (let x = f0 - fp; x < W + fp; x += fp) D.window(ctx, x + 30, 44);
-      // mid layer (doors, clocks, boards...), parallax 0.5
-      const mp = 150, mOff = Math.round(camX * 0.5);
-      const first = Math.floor(mOff / mp) - 1;
-      for (let n = first; n < first + Math.ceil(W / mp) + 3; n++) {
-        const lx = n * mp + 55 - mOff;
-        const wcol = Math.max(0, Math.min(1e6, Math.round(((n * mp + 55 - 240) / 0.5 + 240) / 16)));
-        const key = this.areaKeyAt(wcol), kinds = (this.areaStyle[key] || st).decor;
-        const kind = kinds[((n % kinds.length) + kinds.length) % kinds.length];
-        const y = { door: 84, clock: 56, board: 78, xray: 72, shelf: 100, plant: 142, bench: 150, cross: 56, slidingDoor: 84, window: 44 }[kind];
-        if (kind === 'clock') D.clock(ctx, lx, y, time); else D[kind](ctx, lx, y);
+      R(ctx, ST.wall, 0, y0, W, H);
+      // Mario-style backdrop: one flat wall colour, a single skirting line, and a few quiet scenery pieces
+      // (door, window, plant, noticeboard) at floor level, faded so the player, colleagues and platforms stand out.
+      const f = 240;
+      R(ctx, '#d3e0de', 0, f - 5, W, 5); R(ctx, '#c4d4d2', 0, f - 5, W, 1);
+      const P = 192, n0 = Math.floor((cx - 60) / P), n1 = Math.floor((cx + W) / P) + 1;
+      ctx.globalAlpha = 0.8;
+      for (let n = n0; n <= n1; n++) {
+        const h = hash(n, 0);
+        let kind = ['door', 'window', 'plant', 'window'][(h >>> 4) % 4], x = n * P + 24 + (h >>> 9) % 50 - cx;
+        if (n % 5 === 0) {                          // a noticeboard slot: only where nothing can stand or sit in front of it
+          const spot = L && boardSpot(L, n, P);
+          if (spot) { D.board(ctx, spot.x - cx, spot.y, Math.round(n / 5) + 1000); continue; }
+          if (!L) { D.board(ctx, x, 158, Math.round(n / 5) + 1000); continue; }
+        }
+        D[kind](ctx, x, f);
       }
-      // wainscot + handrail (near layer)
-      R(ctx, ST.accent, 0, 176, W, 64); R(ctx, '#ffffff', 0, 172, W, 3); R(ctx, '#c9dcda', 0, 175, W, 1);
-      const wp = 48, w0 = -(Math.round(camX * 0.9) % wp);
-      for (let x = w0 - wp; x < W + wp; x += wp) { R(ctx, 'rgba(255,255,255,0.28)', x, 180, 1, 60); R(ctx, 'rgba(0,0,0,0.06)', x + 1, 180, 1, 60); }
-      R(ctx, '#7aa7a2', 0, 236, W, 4);
-      // hanging signs (parallax 0.5), centred on their column when the camera is at it
+      ctx.globalAlpha = 1;
+      // wall-mounted direction signs (ground floor), world-locked
       for (const s of this.signs) {
-        const sx = 240 + 0.5 * (s.col * 16 - 240) - camX * 0.5;
-        const w = Gfx.measure(s.text, 1).w + 12;
+        const sx = s.col * 16 + 8 - cx;
+        const w = Math.round(Gfx.measure(s.text, { size: 5, raw: true, bold: true }).w) + 8;
         if (sx + w < 0 || sx - w > W) continue;
-        R(ctx, '#78909c', Math.round(sx - w / 2 + 4), 28, 1, 14); R(ctx, '#78909c', Math.round(sx + w / 2 - 5), 28, 1, 14);
-        R(ctx, '#ffffff', Math.round(sx - w / 2), 41, w, 15); R(ctx, s.color || '#2d8f87', Math.round(sx - w / 2 + 1), 42, w - 2, 13);
-        Gfx.text(ctx, s.text, Math.round(sx), 46, { color: '#ffffff', align: 'center' });
+        const sy = 194;
+        R(ctx, '#78909c', Math.round(sx - w / 2 + 3), sy - 2, 1, 2); R(ctx, '#78909c', Math.round(sx + w / 2 - 4), sy - 2, 1, 2);
+        R(ctx, '#ffffff', Math.round(sx - w / 2), sy, w, 10); R(ctx, s.color || '#2d8f87', Math.round(sx - w / 2 + 1), sy + 1, w - 2, 8);
+        Gfx.text(ctx, s.text, Math.round(sx), sy + 2.6, { raw: true, bold: true, size: 5, color: '#ffffff', align: 'center' });
       }
     },
     areaKeyAt(col) { for (const a of this.areas) if (col >= a.from && col <= a.to) return a.key; return 'corridor'; },
@@ -472,18 +362,22 @@
   LEVELS.healthcare = {
     id: 'healthcare',
     title: 'Healthcare',
-    message: 'Handover briefing at 7am',
+    message: 'Score attack',
     route: ['Main Entrance', 'Corridors', 'Admissions', 'Radiology', 'Pharmacy', 'Ward 4'],
+    hud: C.HUD_H,    // reserved header strip (the world is drawn below it)
+    rolePool: ['nurse', 'doctor', 'porter', 'pharmacist', 'cleaner', 'nurseLead'],
+    zoom: C.ZOOM,    // drawn closer, with a camera that also follows you up and down (see Game.updateCamera)
     mode: 'attack',   // timed score-attack round (see js/attack.js and C.ATTACK)
     intro: name => [
-      name + ', you work in Internal Communications.',
-      'Handover is in 75 seconds. Keep running through the endless hospital',
-      'and reach as many frontline colleagues as you can.',
-      'Check the upper floors: many are up high. Just touch them.',
-      'Nurse Leads count triple. Coins add time.',
-      'Trolleys, vending machines and closed rooms block the way.',
-      'The CEO joins after the first corridor, an HR Manager after',
-      'the second. They steal colleagues and stun you. Dodge them.',
+      name + ', welcome to the Hospital.',
+      '',
+      'You have 60 seconds to spread your message to your frontline.',
+      '',
+      'Avoid the CEO and HR Manager, they want to interrupt your message.',
+      '',
+      'Avoid the obstacles, they slow you down.',
+      '',
+      'Collect coins to get more time. Messages delivered to NUMs get extra time.',
     ],
     goalLine: 'Got it!',
     checkpointLabel: 'Manager sign-off',

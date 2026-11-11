@@ -5,12 +5,12 @@ No frameworks, no build step, no image/audio assets (every sprite and sound is g
 UI type uses the Staffbase brand fonts (Epilogue + Inter) loaded from Google Fonts; offline it falls back to the system sans-serif and everything still works.
 
 Two levels ship:
-* **Healthcare** is a 75-second **score-attack round** through an **endless hospital** (no sections: new stretches are generated ahead of you, different every run; most colleagues are on the mezzanine, walkway and perches): roam a three-tier hospital (it starts easy and gets harder the further you go: shorter platforms, scarcer coins, vending machines standing on the upper floors, more lift-shaft pits; trolleys stay on the ground floor. The first **staff corridor** choke point comes about 25 seconds in and the second about 25 seconds after that (never a third): a low-ceilinged tunnel (no platforms, no big jumps) with trolley traffic, where your top speed drops to 60% (`C.ATTACK.TUNNEL_SPEED_MULT`)) and touch as many frontline colleagues
-  (nurses, doctors, porters, pharmacists, cleaners; Nurse Leads count triple) as you can before handover. New colleagues keep
+* **Healthcare** is a 60-second **score-attack round** through an **endless hospital** (no sections: new stretches are generated ahead of you, different every run; most colleagues are on the mezzanine and walkway): roam a two-floor hospital (floor, mezzanine, walkway) (it starts easy and gets harder the further you go: shorter platforms, scarcer coins, vending machines standing on the upper floors, more lift-shaft pits; trolleys stay on the ground floor. The first **staff corridor** choke point comes about 25 seconds in and the second about 25 seconds after that (never a third): a low-ceilinged tunnel (no platforms, no big jumps) with trolley traffic, where your top speed drops to 60% (`C.ATTACK.TUNNEL_SPEED_MULT`)) and touch as many frontline colleagues
+  (nurses, doctors, porters, pharmacists, cleaners; Nurse Leads, the unit managers, count triple and add 3s to the clock) as you can before handover. New colleagues keep
   spawning. The only people are frontline colleagues (plus the CEO): the challenge is physical. Patrolling trolleys and meds/linen
   carts slow you, closed rooms are solid blocks you hop over (tile `R`), and pits are out-of-service lifts.
-  Coins add 0.5s. The CEO appears after you leave the first corridor/lounge (placard: All Staff Update / Crisis Comms / Monthly Finance Update) and an HR Manager after the second (New Benefits / Welcome New Starters / Policy Updates). They steal colleagues they reach first, re-roll their message on each steal, and stun you for 2s if they catch you. There are exactly two corridors (about 6-7 stretches apart); after the second there are none. Enter on the end screen replays instantly.
-* **Manufacturing** is the classic run to the hard-hatted foreman (forklifts, crates, shelving, conveyors).
+  Coins add 0.5s. The CEO appears after you leave the first corridor/lounge (placard: All Staff Update / Crisis Comms / Monthly Finance Update) and an HR Manager after the second (New Benefits / Welcome New Starters / Policy Updates). They step out just ahead of you (`C.ATTACK.CHASER_AHEAD_TILES`) and run at you head-on. They steal colleagues they reach first, re-roll their message on each steal, and stun you for 2s if they catch you. There are exactly two corridors (about 6-7 stretches apart); after the second there are none. Enter on the end screen replays instantly.
+* **Manufacturing** is the same 60-second round in an endless factory (it shares the generator, `js/levels/endless.js`). Colleagues are operators, welders, packers, drivers and cleaners; **Shift Supervisors** count triple and add 3s. Obstacles are pallet jacks, box trolleys, shipping containers and shelving, plus the factory extras: **forklifts** and **union reps**; all of them slow you down and none score. The two choke-point corridors are the **Loading Bay** and the **Break Room**, with the CEO and HR Manager chasing after them, exactly as in Healthcare.
 
 Finance and Transport are placeholders.
 
@@ -80,13 +80,14 @@ js/player.js          the player
 js/attack.js          score-attack round: colleagues (NPCs), spawning, ranks
 js/enemies.js         managers, union reps, patients, pagers, assistants, nurse, CEO
 js/game.js            Level (tiles, collision, items, barriers), state machine, camera, fixed-step loop
-js/levels/manufacturing.js   Level 2: factory theme, forklifts, the Foreman (same engine, own data + art)
-js/levels/healthcare.js   Level 1: tile map, entities, barriers, theme palette, intro text, procedural art
+js/levels/endless.js        the shared endless map generator (chunks, tiers, choke-point corridors)
+js/levels/manufacturing.js   The endless factory (cast, obstacles, theme and art)
+js/levels/healthcare.js   The endless hospital (cast, obstacles, theme and art)
 dev/bot.js            optional autopilot used to verify the level is completable
 ```
 
 Game states: name entry, title (home), choose level, how to play, leaderboard, intro, playing, paused, game over, level complete.
-The leaderboard is local: every attempt, delivered or failed, gets one numeric score (tuned in `C.SCORE`) and is kept in this browser's localStorage (`C.BOARD_KEY`), highest first.
+The leaderboard is local: every attempt, delivered or failed, gets one numeric score (tuned in `C.SCORE`) and is kept in this browser's localStorage (`C.BOARD_KEY`), highest first. The leaderboard screen shows **All levels** together by default; a dropdown at the top filters it to one level.
 The simulation runs at a fixed 60 Hz step; collision is AABB per axis in steps of at most 6px (no tunnelling).
 The canvas is 480x272 logical pixels, drawn on a hi-res backing store (an integer multiple, set in `Game.resize`) so vector
 text stays crisp while sprites stay hard-edged (`imageSmoothingEnabled = false` / `image-rendering: pixelated`).
@@ -108,7 +109,7 @@ Input.addSource(() => {
 
 A level is **one self-contained file** that registers itself on `LEVELS`.
 
-1. Copy `js/levels/healthcare.js` to `js/levels/retail.js`.
+1. Copy `js/levels/manufacturing.js` (or healthcare.js) to `js/levels/retail.js`. A new score-attack level is an `Endless.make({...})` config (cast, obstacles, signs, corridor names) plus its art.
 2. Edit the data:
    * `id`, `title`, `message` (the HUD message that corrupts), `route`, `intro(name)`, `goalLine`, `checkpointLabel`
    * `areas` (name + tile-column range; drives HUD area names, banners and background style)
@@ -134,7 +135,17 @@ and supply a `drawGoal(ctx, sx, y, hop, t)` function to draw its own goal charac
 ### Score-attack mode
 A level opts in with `mode: 'attack'` plus `npcStart` and `spawnPoints` (see `js/levels/healthcare.js`, `js/attack.js`).
 All its numbers live in `C.ATTACK` (round length, spawn interval, role values, stun/slow times, CEO speed and start time, ranks).
-The leaderboard keeps the top 10 per level. Shift+R on the home screen resets it.
+The leaderboard keeps up to `C.BOARD_MAX` (100) scores per level and shows `C.BOARD_PAGE` (10) per page, with page buttons (or Left / Right) beyond that. Shift+R on the home screen resets it.
+
+### Look and camera (Healthcare)
+Healthcare is drawn 1.33x closer (`C.ZOOM`, set per level with `zoom` in the level data), so you see about 22 tiles across and
+roughly 12 rows below the header strip. The camera only scrolls sideways: its vertical framing is fixed (`C.CAMERA.FIXED_Y`), so it never bobs. An "Upstairs" pill appears when the only colleagues left in this stretch are above you.
+The backdrop is deliberately Mario-simple: one flat wall colour with a single skirting line and a few faded, floor-level pieces
+(door, window, plant, noticeboard) so the player, colleagues and platforms stand out. Platforms are hospital furniture: gurneys,
+wall-mounted medical cabinets and nurse-station counters. Manufacturing uses the same zoom, camera, header, noticeboards and Mario-simple wall, in factory colours (steel, safety orange, hazard stripes), with conveyors, scaffold grates and pallet-rack beams as its platforms.
+
+**Noticeboards:** a board hangs high on the wall roughly every 5th scenery slot, only where no platform, block, machine, trolley or colleague can be in front of it. Edit the `C.NOTICES` list in `js/constants.js` to post your own
+messaging: `{ tag: 'HEADER', lines: ['up to 3 short', 'lines of text'], color: '#FF475D' }`. Text auto-shrinks to fit the board.
 
 ## Tuning difficulty (js/constants.js)
 

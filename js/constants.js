@@ -7,22 +7,25 @@ const C = {
   VIEW_W: 480,
   VIEW_H: 272,
   TILE: 16,
+  ZOOM: 4 / 3,             // Healthcare is drawn 1.33x closer (360x189 world px on screen, below the header)
+  HUD_H: 20,               // height of the score-attack header strip; the game is drawn below it, never underneath with a camera that also follows you up and down
   DT: 1 / 60,               // fixed timestep
   MAX_STEPS_PER_FRAME: 5,
 
   GRAVITY: 900,
   MAX_FALL: 480,
 
-  DEFAULT_NAME: 'Comms Hero',
+  DEFAULT_NAME: 'Martin',
   NAME_MAX: 16,
   STORAGE_KEY: 'messageRun.playerName',
   BOARD_KEY: 'messageRun.leaderboard',
-  BOARD_MAX: 10,       // top scores kept per level
+  BOARD_MAX: 100,      // scores kept per level (the leaderboard shows them BOARD_PAGE at a time)
+  BOARD_PAGE: 10,      // rows per leaderboard page
   // Levels shown on the Choose Level screen. A level is playable once LEVELS[id] is registered;
   // until then it shows as a "coming soon" placeholder.
   LEVEL_LIST: [
-    { id: 'healthcare',    num: 1, title: 'Healthcare',    tag: 'Handover briefing at 7am' },
-    { id: 'manufacturing', num: 2, title: 'Manufacturing', tag: 'Coming soon' },
+    { id: 'healthcare',    num: 1, title: 'Healthcare',    tag: 'Score attack' },
+    { id: 'manufacturing', num: 2, title: 'Manufacturing', tag: 'Score attack' },
     { id: 'finance',       num: 3, title: 'Finance',       tag: 'Coming soon' },
     { id: 'transport',     num: 4, title: 'Transport',     tag: 'Coming soon' },
   ],
@@ -111,7 +114,9 @@ const C = {
 
   // Score-attack round (levels with mode: 'attack', currently Healthcare)
   ATTACK: {
-    ROUND_TIME: 75,            // seconds on the handover clock
+    ROUND_TIME: 60,            // seconds on the clock
+    PIT_PENALTY: 5,            // points lost for falling down a lift shaft / floor pit (score never drops below 0)
+    NUM_TIME_BONUS: 3,         // extra seconds when a message reaches a Nurse Unit Manager (Nurse Lead)
     SPAWN_INTERVAL: 3,
     // Chasers appear after corridors: the CEO after the first, an HR Manager after the second. Every steal re-rolls their message.
     CEO_MESSAGES: ['All Staff Update', 'Crisis Comms', 'Monthly Finance Update'],
@@ -119,6 +124,8 @@ const C = {
     HR_SPEED: 77,              // the HR Manager is a touch slower than the CEO
     HR_ENTRANCE: ['Got a moment?', 'Can we talk?', 'Quick check-in?'],
     HR_TAUNTS: ['Mandatory training!', 'Have you signed this?', 'Wellbeing check!', 'Please read the handbook!'],
+    CHASER_AHEAD_TILES: 17,    // the CEO / HR Manager step out this far AHEAD of you (just past the screen edge) and run at you
+    CHASER_ENTRANCE: 0.7,      // seconds they pose before running (the classic level uses C.CEO.ENTRANCE_TIME)
     CORRIDOR_GAP: [6, 7],      // stretches (32 tiles each) between corridor 1 and 2; there are exactly two (the first is 5-6 stretches in)
     RECEIVED_LINES: ['Message received', 'Got it!', 'Great messaging', 'Thanks for the comms'],   // random reply when a colleague is reached
     TUNNEL_SPEED_MULT: 0.6,    // top speed inside a staff-corridor choke point (low ceiling, trolley traffic)
@@ -128,7 +135,7 @@ const C = {
     AHEAD_TILES: 90,           // how far ahead the endless hospital is generated
     ENCOUNTER_TILES: 34,       // a generated colleague counts towards read rate once you get this close
     MAX_ACTIVE: 8,             // ...while fewer than this many unreached colleagues are on the map
-    NPC_VALUES: { nurse: 1, doctor: 1, porter: 1, pharmacist: 1, cleaner: 1, nurseLead: 3 },
+    NPC_VALUES: { nurse: 1, doctor: 1, porter: 1, pharmacist: 1, cleaner: 1, nurseLead: 3, supervisor: 3 },
     NPC_ROAM_SPEED: 20,
     STUN_TIME: 1.0,            // managers / pagers / falls
     SLOW_TIME: 1.0,            // union reps, patients
@@ -162,7 +169,37 @@ const C = {
     FAIL_PROGRESS: 3000,        // failed attempts: score for the whole route (scaled by how far you got)
   },
 
-  CAMERA: { LOOKAHEAD: 28, FOLLOW: 7, SCREEN_X: 0.38 },
+  CAMERA: { LOOKAHEAD: 0, FOLLOW: 6, SCREEN_X: 0.38, FIXED_Y: 67 },   // FIXED_Y: zoomed levels never scroll vertically (no bounce); this is the world y at the top of the screen
+
+  // Noticeboards on the hospital walls. Add your own: { tag (header), lines (max 3, about 15 characters each), color }.
+  NOTICES_MFG: [   // noticeboards in the factory
+    { tag: 'STAFFBASE', lines: ['Every employee.', 'Every shift.', 'One app.'], color: '#090D48' },
+    { tag: 'SAFETY FIRST', lines: ['Hard hats on.', 'Eyes up.', 'Stay safe.'], color: '#2f9d62' },
+    { tag: 'ALL STAFF', lines: ['Free tea in the', 'canteen at 3pm.'], color: '#FF475D' },
+    { tag: 'TOOLBOX TALK', lines: ['Friday 10am.', 'Bring your', 'questions.'], color: '#F28A30' },
+    { tag: 'SHIFT SWAP', lines: ['Swap it in the', 'app. No more', 'paper rotas.'], color: '#090D48' },
+    { tag: 'COMMS TIP', lines: ['One message.', 'One action.', 'Keep it short.'], color: '#006CFF' },
+    { tag: 'FORKLIFTS', lines: ['Beep beep.', 'Pedestrians', 'first. Always.'], color: '#46607a' },
+    { tag: 'LOST & FOUND', lines: ['One hi-vis vest.', 'Slightly loved.', 'Please claim.'], color: '#5b7fa6' },
+    { tag: 'STAFF AWARDS', lines: ['Nominate a', 'colleague today.'], color: '#FF475D' },
+    { tag: 'QUIZ NIGHT', lines: ['Thursday 7pm.', 'Team name:', 'The Pallet Pals'], color: '#F28A30' },
+    { tag: 'WELCOME', lines: ['New starters', 'say hello in', 'the canteen.'], color: '#2d8f87' },
+    { tag: 'RECYCLING', lines: ['Cardboard here.', 'Pallets there.'], color: '#2f9d62' },
+  ],
+  NOTICES: [
+    { tag: 'STAFFBASE', lines: ['Every employee.', 'Every shift.', 'One app.'], color: '#090D48' },
+    { tag: 'ALL STAFF', lines: ['Free biscuits in', 'the staff lounge!', 'Today only.'], color: '#FF475D' },
+    { tag: 'HAND HYGIENE', lines: ['Wash in, wash out.', 'Message received?'], color: '#2d8f87' },
+    { tag: 'COMMS TIP', lines: ['One message.', 'One action.', 'Keep it short.'], color: '#006CFF' },
+    { tag: 'QUIZ NIGHT', lines: ['Thursday 7pm.', 'Team name:', 'The Comms Crew'], color: '#F28A30' },
+    { tag: 'LOST & FOUND', lines: ['One unread', 'newsletter.', 'Please claim.'], color: '#5b7fa6' },
+    { tag: 'WELLBEING', lines: ['Free tea and a', '5 minute stretch', 'at 3pm.'], color: '#2f9d62' },
+    { tag: 'SHIFT SWAP', lines: ['Swap it in the', 'app. No more', 'group chats.'], color: '#090D48' },
+    { tag: 'STAFF AWARDS', lines: ['Nominate a', 'colleague today.'], color: '#FF475D' },
+    { tag: 'DID YOU KNOW?', lines: ['Great comms', 'start with a', 'great read.'], color: '#006CFF' },
+    { tag: 'CAR PARK', lines: ['Full again.', 'Take the bus!'], color: '#46607a' },
+    { tag: 'WELCOME', lines: ['New starters', 'say hello in', 'the lounge.'], color: '#2d8f87' },
+  ],
 
   DEBUG: false, // ?debug in the URL also enables it
 };

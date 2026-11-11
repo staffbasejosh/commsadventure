@@ -226,7 +226,7 @@ class Forklift extends Enemy {
     if (L.isStomp(p, this)) { p.stompBounce(); p.y = this.y - p.h; Sound.play('bump'); this.say = { text: 'Hey! Hard hat area!', t: 1.4 }; return; }
     const away = p.cx < this.cx ? -1 : 1;
     p.vx = away * C.PLAYER.KNOCKBACK_X; p.vy = Math.min(p.vy, -90); p.x += away * 2;
-    if (p.invuln <= 0 && p.power.sponsor <= 0) { L.hurtPlayer(L.attack ? C.INTEGRITY.MANAGER_HIT : C.INTEGRITY.UNION_HIT, this.cx); this.say = { text: 'Beep beep! Watch out!', t: 1.4 }; }
+    if (p.invuln <= 0 && p.power.sponsor <= 0) { L.hurtPlayer(C.INTEGRITY.UNION_HIT, this.cx); this.say = { text: 'Beep beep! Watch out!', t: 1.4 }; }
   }
   draw(ctx, camX, time) {
     const sx = Math.round(this.x - camX), y = Math.round(this.y); if (sx < -50 || sx > C.VIEW_W + 50) return;
@@ -259,7 +259,7 @@ class Forklift extends Enemy {
 class Trolley extends Enemy {
   constructor(L, def) {
     const v = def.variant || 'gurney';
-    super(L, def, v === 'gurney' ? 30 : 20, v === 'gurney' ? 14 : 18);
+    super(L, def, v === 'gurney' ? 30 : v === 'pallet' ? 28 : 20, v === 'gurney' ? 14 : v === 'pallet' ? 16 : 18);
     this.variant = v; this.say = null;
   }
   update(dt) {
@@ -283,6 +283,13 @@ class Trolley extends Enemy {
       R('#cfd8dc', 0, 5, 30, 2); R('#ffffff', 0, 2, 30, 4); R('#5fb8b0', 0, 6, 30, 1);
       R('#ffffff', 1, 0, 6, 3); R('#8ccbc6', 9, 0, 14, 3); R('#8a9a99', 4, 7, 2, 4); R('#8a9a99', 24, 7, 2, 4);
       R('#37474f', 2, 10, 5, 4); R('#37474f', 23, 10, 5, 4); R('#78909c', 0, 1, 1, 6);
+    } else if (this.variant === 'pallet') {    // pallet jack with a shrink-wrapped stack of boxes
+      R('#9aa7b0', 0, 13, 28, 2); R('#78909c', 0, 15, 28, 1); R('#37474f', 3, 15, 3, 1); R('#37474f', 22, 15, 3, 1);
+      R('#546e7a', 24, 5, 2, 10); R('#37474f', 22, 4, 6, 2); R('#c89b64', 3, 3, 12, 10); R('#e8c28f', 3, 3, 12, 1); R('#a87a45', 8, 3, 1, 10);
+      R('#d9a66b', 16, 7, 7, 6); R('#e8c28f', 16, 7, 7, 1); R('#a87a45', 19, 7, 1, 6); R('rgba(255,255,255,0.35)', 3, 4, 20, 8);
+    } else if (this.variant === 'boxcart') {   // wheeled cage trolley stacked with boxes
+      R('#78909c', 0, 1, 1, 14); R('#78909c', 19, 1, 1, 14); R('#9aa7b0', 0, 12, 20, 2); R('#37474f', 1, 14, 4, 4); R('#37474f', 15, 14, 4, 4);
+      R('#c89b64', 2, 4, 8, 8); R('#e8c28f', 2, 4, 8, 1); R('#a87a45', 5, 4, 1, 8); R('#d9a66b', 11, 6, 7, 6); R('#a87a45', 14, 6, 1, 6); R('#e8e0c8', 4, 0, 5, 4); R('#c0392b', 5, 1, 3, 1);
     } else if (this.variant === 'meds') {      // drawer cart
       R('#2d8f87', 0, 2, 20, 12); R('#5fb8b0', 0, 2, 20, 2); R('#1d6b65', 0, 13, 20, 1);
       R('#e8f6f4', 2, 5, 16, 3); R('#e8f6f4', 2, 9, 16, 3); R('#37474f', 9, 6, 2, 1); R('#37474f', 9, 10, 2, 1);
@@ -295,7 +302,7 @@ class Trolley extends Enemy {
     }
     ctx.restore();
     if (this.say) Gfx.bubble(ctx, this.say.text, sx + this.w / 2, y - 6);
-    else if (this.near) label(ctx, this.variant === 'gurney' ? 'TROLLEY' : this.variant === 'meds' ? 'MEDS CART' : 'LINEN CART', sx + this.w / 2, y - 12, '#bfe3f5');
+    else if (this.near) label(ctx, this.variant === 'gurney' ? 'TROLLEY' : this.variant === 'meds' ? 'MEDS CART' : this.variant === 'pallet' ? 'PALLET JACK' : this.variant === 'boxcart' ? 'BOX TROLLEY' : 'LINEN CART', sx + this.w / 2, y - 12, '#bfe3f5');
   }
 }
 
@@ -493,16 +500,16 @@ class CEO {
   spawn(first) {
     const L = this.L, T = C.TILE, K = C.CEO, p = L.player;
     let col = Math.floor(p.x / T) - K.SPAWN_BEHIND_TILES;
-    if (L.attack) { // roaming map: appear off-screen on whichever side has room
-      if (col < 2) col = Math.floor(p.x / T) + K.SPAWN_BEHIND_TILES;
-      col = Math.max(2, Math.min(L.cols - 3, col));
-      let guard = 0; while (guard++ < 40 && !L.solidAt(col, L.rows - 2)) col++;
+    if (L.attack) { // roaming map: step out just beyond the right edge of the screen, so he meets you head-on
+      col = Math.max(2, Math.min(L.cols - 4, Math.floor(p.x / T) + C.ATTACK.CHASER_AHEAD_TILES));
+      let guard = 0;   // ...on clear floor (not inside a closed room, not over a lift shaft)
+      while (guard++ < 40 && col < L.cols - 3 && !(L.solidAt(col, L.rows - 2) && !L.solidAt(col, L.rows - 3) && !L.solidAt(col, L.rows - 4))) col++;
     } else {
       col = Math.max(1, col);
       while (col < L.cols - 1 && !L.solidAt(col, L.rows - 2)) col++;
     }
     this.x = col * T + 2; this.y = L.groundTopAt(col) - this.h;
-    this.vx = this.vy = 0; this.dir = 1; this.active = true; this.state = 'entrance'; this.entT = K.ENTRANCE_TIME; this.doorT = 0;
+    this.vx = this.vy = 0; this.dir = 1; this.active = true; this.state = 'entrance'; this.entT = L.attack ? C.ATTACK.CHASER_ENTRANCE : K.ENTRANCE_TIME; this.doorT = 0;
     this.t = 0; this.waiting = null; this.gapJump = false; this.lastX = this.x; this.stuckT = 0;
     this.message = this.pickMessage();
     this.speak(this.entranceLines[Math.floor(Math.random() * this.entranceLines.length)], 2.4);

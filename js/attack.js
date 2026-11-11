@@ -14,7 +14,13 @@ const ROLES = {
   porter:     { label: 'PORTER',     value: 1, weight: 2, coat: '#3b5b84', shirt: '#3b5b84', pants: '#26364d', hat: 'cap', skin: '#8d5524', hair: '#202020', icon: '#6b7a90' },
   pharmacist: { label: 'PHARMACIST', value: 1, weight: 2, coat: '#e8f4ee', shirt: '#ffffff', pants: '#5b6b60', glasses: '#2b2b33', lanyard: '#2f9d62', prop: 'clipboard', skin: '#f1c9a0', hair: '#a0522d', icon: '#2f9d62' },
   cleaner:    { label: 'CLEANER',    value: 1, weight: 2, coat: '#f2b705', shirt: '#f2b705', pants: '#37474f', skin: '#e0b48a', hair: '#3a2a1e', icon: '#d49a00' },
-  nurseLead:  { label: 'NURSE LEAD', value: 3, weight: 1, coat: '#1f7f78', shirt: '#1f7f78', pants: '#1f7f78', hat: 'cap', prop: 'clipboard', lanyard: '#f2b705', skin: '#c68642', hair: '#202020', icon: '#f2b705', high: true },
+  nurseLead:  { label: 'NURSE LEAD', value: 3, weight: 1, coat: '#1f7f78', shirt: '#1f7f78', pants: '#1f7f78', hat: 'cap', prop: 'clipboard', lanyard: '#f2b705', skin: '#c68642', hair: '#202020', icon: '#f2b705', high: true, lead: true },
+  // Manufacturing cast (cleaner is shared)
+  operator:   { label: 'OPERATOR',   value: 1, weight: 3, coat: '#2b6cb0', shirt: '#2b6cb0', pants: '#26364d', hat: 'hard', vest: '#ff9f1c', skin: '#c68642', hair: '#202020', icon: '#2b6cb0' },
+  welder:     { label: 'WELDER',     value: 1, weight: 2, coat: '#8a5a2b', shirt: '#6b4e3a', pants: '#37474f', hat: 'hard', glasses: '#111111', skin: '#f1c9a0', hair: '#5a3825', icon: '#e8742a' },
+  packer:     { label: 'PACKER',     value: 1, weight: 2, coat: '#3f9b5a', shirt: '#3f9b5a', pants: '#37474f', hat: 'cap', vest: '#ffd23f', skin: '#e0b48a', hair: '#3a2a1e', icon: '#3f9b5a' },
+  driver:     { label: 'DRIVER',     value: 1, weight: 2, coat: '#e8742a', shirt: '#e8742a', pants: '#2b2b33', hat: 'hard', vest: '#ffd23f', skin: '#8d5524', hair: '#202020', icon: '#e8742a' },
+  supervisor: { label: 'SHIFT SUPERVISOR', value: 3, weight: 1, coat: '#f4f6f8', shirt: '#f4f6f8', pants: '#3b4a63', hat: 'hard', vest: '#ff9f1c', prop: 'clipboard', lanyard: '#f2b705', skin: '#c68642', hair: '#202020', icon: '#f2b705', high: true, lead: true },
 };
 
 class NPC extends Enemy {
@@ -42,6 +48,7 @@ class NPC extends Enemy {
     g.reached += this.value; g.reachedCount++;
     Sound.play('coin');
     L.addPopup('+' + this.value, this.cx, this.y - 16, '#ffe27a');
+    if (this.R.lead) { g.addTime(C.ATTACK.NUM_TIME_BONUS); L.addPopup('+' + C.ATTACK.NUM_TIME_BONUS + 's', this.cx, this.y - 28, '#9ff0c8'); }
     L.sparkle(this.cx, this.y + 4, '#ffe27a', this.value > 1 ? 14 : 8);
   }
   update(dt) {
@@ -71,7 +78,7 @@ class NPC extends Enemy {
     Gfx.person(ctx, sx + this.w / 2 - 5, y + this.h - 16 - hop, o);
     if (this.role === 'cleaner') { // mop
       Gfx.px(ctx, '#9aa7b0', sx + (this.dir > 0 ? 11 : 0), y - 2 - hop, 1, 17); Gfx.px(ctx, '#e8e0c8', sx + (this.dir > 0 ? 9 : -2), y + 13 - hop, 5, 3);
-    } else if (this.role === 'nurseLead') {
+    } else if (R.lead) {
       Gfx.px(ctx, '#f2b705', sx + 5, y + 7 - hop, 2, 2);
     }
     ctx.globalAlpha = 1;
@@ -95,10 +102,14 @@ function drawRoleIcon(ctx, role, cx, cy, color, value) {
     case 'porter': ctx.fillRect(-2.8, -0.8, 5.6, 1.4); ctx.beginPath(); ctx.arc(-1.8, 1.6, 0.8, 0, Math.PI * 2); ctx.arc(1.8, 1.6, 0.8, 0, Math.PI * 2); ctx.fill(); break;
     case 'pharmacist': ctx.rotate(-0.7); ctx.fillRect(-2.6, -1, 2.6, 2); ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.fillRect(0, -1, 2.6, 2); break;
     case 'cleaner': ctx.beginPath(); ctx.moveTo(-2.2, -1.2); ctx.lineTo(2.2, -1.2); ctx.lineTo(1.5, 2.4); ctx.lineTo(-1.5, 2.4); ctx.closePath(); ctx.fill(); break;
-    case 'nurseLead': Gfx.text(ctx, String(value), 0, -2.6, { font: 'body', bold: true, size: 6.4, color: '#4a3200', align: 'center', raw: true }); break;
+    case 'operator': ctx.beginPath(); ctx.arc(0, 0, 2.3, 0, Math.PI * 2); ctx.lineWidth = 1.4; ctx.stroke(); for (let i = 0; i < 4; i++) { ctx.save(); ctx.rotate(i * Math.PI / 2); ctx.fillRect(-0.6, -3.6, 1.2, 1.6); ctx.restore(); } break;
+    case 'welder': ctx.beginPath(); ctx.moveTo(0, -3); ctx.lineTo(0.9, -0.6); ctx.lineTo(3, 0); ctx.lineTo(0.9, 0.8); ctx.lineTo(0, 3); ctx.lineTo(-0.9, 0.8); ctx.lineTo(-3, 0); ctx.lineTo(-0.9, -0.6); ctx.closePath(); ctx.fill(); break;
+    case 'packer': ctx.fillRect(-2.6, -1.6, 5.2, 3.6); ctx.fillStyle = color; ctx.fillRect(-0.4, -1.6, 0.8, 3.6); break;
+    case 'driver': ctx.fillRect(-2.8, -0.4, 4.6, 2); ctx.fillRect(1.4, -2.8, 1.1, 4.8); ctx.beginPath(); ctx.arc(-1.6, 2.1, 0.8, 0, Math.PI * 2); ctx.arc(0.6, 2.1, 0.8, 0, Math.PI * 2); ctx.fill(); break;
+    case 'nurseLead': case 'supervisor': Gfx.text(ctx, String(value), 0, -2.6, { font: 'body', bold: true, size: 6.4, color: '#4a3200', align: 'center', raw: true }); break;
   }
   ctx.restore();
-  if (value > 1 && role !== 'nurseLead') Gfx.text(ctx, 'x' + value, cx + 7, cy - 2, { size: 5.4, bold: true, color: '#ffe27a', shadow: '#090D48', raw: true });
+  if (value > 1 && role !== 'nurseLead' && role !== 'supervisor') Gfx.text(ctx, 'x' + value, cx + 7, cy - 2, { size: 5.4, bold: true, color: '#ffe27a', shadow: '#090D48', raw: true });
 }
 
 const Attack = {
@@ -121,7 +132,7 @@ const Attack = {
   spawn(L) {
     const T = C.TILE, p = L.player, pts = L.spawnPoints || [], A = C.ATTACK;
     const live = L.enemies.filter(e => e instanceof NPC && e.state !== 'reached');
-    const camL = L.g.camX, camR = L.g.camX + C.VIEW_W;
+    const camL = L.g.camX, camR = L.g.camX + L.viewW;
     const free = pts.filter(s => {
       const px = s.x * T + 8;
       if (Math.abs(px - p.cx) < 6 * T || Math.abs(px - p.cx) > A.SPAWN_RANGE * T) return false;
@@ -135,7 +146,7 @@ const Attack = {
     const up = pool.filter(s => s.y < 15);   // most colleagues are on the upper floors
     if (up.length && Math.random() < A.HIGH_BIAS) pool = up;
     const s = pool[Math.floor(Math.random() * pool.length)];
-    const roles = Object.keys(ROLES).filter(r => !ROLES[r].high || s.kind !== 'ground');
+    const roles = (L.data.rolePool || Object.keys(ROLES)).filter(r => !ROLES[r].high || s.kind !== 'ground');
     let total = 0; for (const r of roles) total += ROLES[r].weight;
     let k = Math.random() * total, role = roles[0];
     for (const r of roles) { k -= ROLES[r].weight; if (k <= 0) { role = r; break; } }
