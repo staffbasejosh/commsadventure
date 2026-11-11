@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Deliver the Message - Level 1: Healthcare</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A tiny side-scrolling platformer: get an important message to the nurse before shift handover.">
+  <!-- Staffbase brand fonts (Epilogue headlines, Inter body). Falls back to system sans if offline. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Epilogue:wght@700;800&family=Inter:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="game" width="480" height="272" tabindex="0" aria-label="Deliver the Message platformer game"></canvas>
+  <noscript>This game needs JavaScript.</noscript>
+
+  <!-- Plain scripts (no modules, no build step) so it runs straight from file:// -->
+  <script src="js/constants.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/levels/healthcare.js"></script>
+  <script src="js/levels/manufacturing.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/enemies.js"></script>
+  <script src="js/attack.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
