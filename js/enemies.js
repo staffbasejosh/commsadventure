@@ -606,8 +606,8 @@ class CEO {
     if (!this.active) return;
     const sx = Math.round(this.x - camX);
     if (sx < -60 || sx > C.VIEW_W + 60) return;
-    // lift doors for the entrance
-    if (this.doorT < K_DOOR) {
+    // lift doors for the entrance (score-attack rounds have the chaser run in from the front, no doors)
+    if (!this.L.attack && this.doorT < K_DOOR) {
       const open = Math.min(1, this.doorT / 1.0) * 9, dx = sx - 6, dy = Math.round(this.y + this.h - 28);
       Gfx.px(ctx, '#37474f', dx - 1, dy - 1, 26, 30); Gfx.px(ctx, '#fff6c0', dx + 2, dy + 2, 20, 26);
       Gfx.px(ctx, '#90a4ae', dx + 2 - open, dy + 2, 10, 26); Gfx.px(ctx, '#90a4ae', dx + 12 + open, dy + 2, 10, 26);
