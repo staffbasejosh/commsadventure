@@ -115,6 +115,7 @@ const C = {
   // Score-attack round (levels with mode: 'attack', currently Healthcare)
   ATTACK: {
     ROUND_TIME: 60,            // seconds on the clock
+    PIT_TIME_PENALTY: 3,       // seconds lost for falling down a hatch / chute / lift shaft
     PIT_PENALTY: 5,            // points lost for falling down a lift shaft / floor pit (score never drops below 0)
     NUM_TIME_BONUS: 3,         // extra seconds when a message reaches a Nurse Unit Manager (Nurse Lead)
     SPAWN_INTERVAL: 3,

@@ -287,6 +287,8 @@ class Level {
       const lost = Math.min(g.reached, C.ATTACK.PIT_PENALTY);
       g.reached -= lost;
       if (lost) this.addPopup('-' + lost, Math.max(40, Math.min(this.mapW - 40, p.x)), 164, '#ff9f98');
+      g.addTime(-C.ATTACK.PIT_TIME_PENALTY);
+      this.addPopup('-' + C.ATTACK.PIT_TIME_PENALTY + 's', Math.max(40, Math.min(this.mapW - 40, p.x)), 150, '#ff9f98');
     }
     this.addPopup(this.data.pitText || 'LIFT OUT OF SERVICE!', Math.max(40, Math.min(this.mapW - 40, p.x)), 180, '#ffe27a');
     if (g.integrity <= 0) return;
