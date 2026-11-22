@@ -638,8 +638,8 @@ const Game = {
         if (h && h.id === 'again') { Sound.play('confirm'); this.playAgain(); } else if (h && h.id === 'levels') this.goLevels(); else if (h && h.id === 'home') this.goHome();
       } else if (this.state === 'controls') {
         if (h && h.id === 'back') { Sound.play('menu'); this.setState('howto'); }
-        else if (h && h.id === 'reset') this.controlsAction(3);
-        else if (h && h.id.startsWith('row:')) this.controlsAction(['jump', 'confirm', 'pause'].indexOf(h.id.slice(4)));
+        else if (h && h.id === 'reset') this.controlsAction(4);
+        else if (h && h.id.startsWith('row:')) this.controlsAction(['jump', 'confirm', 'back', 'pause'].indexOf(h.id.slice(4)));
       } else if (this.state === 'howto' && h && h.id === 'setup') { Sound.play('confirm'); this.setState('controls');
       } else if (this.state === 'howto' || this.state === 'leaderboard') {
         if (h && h.id === 'back') this.goHome();
@@ -678,13 +678,13 @@ const Game = {
     } else if (id === 'home') { this.pauseConfirm = true; this.confirmSel = 1; Sound.play('menu'); }
     else if (id === 'yes') this.pauseAction('end');   // leaving mid-game still records the score and shows the results
   },
-  /** Controller setup: rows 0-2 wait for a button press, 3 resets, 4 goes back. */
+  /** Controller setup: rows 0-3 wait for a button press, 4 resets, 5 goes back. */
   controlsAction(i) {
-    const acts = ['jump', 'confirm', 'pause'];
-    if (i <= 2) {
+    const acts = ['jump', 'confirm', 'back', 'pause'];
+    if (i <= 3) {
       this.ctlListening = acts[i]; Sound.play('menu');
       Input.pad.capture(idx => { Input.pad.set(acts[i], idx); this.ctlListening = null; Sound.play('confirm'); });
-    } else if (i === 3) { Input.pad.reset(); Sound.play('pause'); }
+    } else if (i === 4) { Input.pad.reset(); Sound.play('pause'); }
     else { Sound.play('menu'); this.setState('howto'); }
   },
   goHome() { Sound.play('menu'); this.setState('title'); },
@@ -828,6 +828,7 @@ const Game = {
 
   // ---- fixed update
   step() {
+    Input.menuMode = this.state !== 'playing';
     Input.poll();
     const dt = C.DT;
     this.menuTime += dt;
@@ -866,8 +867,8 @@ const Game = {
       case 'controls':
         this.menuCam += dt * 30;
         if (this.ctlListening) { if (Input.pressed('pause')) { Input.pad.cancelCapture(); this.ctlListening = null; Sound.play('menu'); } break; }
-        if (Input.pressed('up')) { this.ctlSel = (this.ctlSel + 4) % 5; Sound.play('menu'); }
-        else if (Input.pressed('down')) { this.ctlSel = (this.ctlSel + 1) % 5; Sound.play('menu'); }
+        if (Input.pressed('up')) { this.ctlSel = (this.ctlSel + 5) % 6; Sound.play('menu'); }
+        else if (Input.pressed('down')) { this.ctlSel = (this.ctlSel + 1) % 6; Sound.play('menu'); }
         else if (Input.pressed('confirm')) this.controlsAction(this.ctlSel);
         else if (Input.pressed('pause')) { Sound.play('menu'); this.setState('howto'); }
         break;

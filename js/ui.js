@@ -378,8 +378,8 @@ const UI = (() => {
   // ---- shared bits for the menu screens -----------------------------------
   const BACK = { id: 'back', x: 50, y: 234, w: 92, h: 16 };
   const SETUP = { id: 'setup', x: 152, y: 234, w: 124, h: 16 };
-  const CTL_ROWS = [{ id: 'jump', title: 'Jump', y: 92 }, { id: 'confirm', title: 'Select (menus)', y: 122 }, { id: 'pause', title: 'Pause / back', y: 152 }];
-  const CTL_RESET = { id: 'reset', x: 50, y: 198, w: 124, h: 16 };
+  const CTL_ROWS = [{ id: 'jump', title: 'Jump', y: 88 }, { id: 'confirm', title: 'Select (menus)', y: 114 }, { id: 'back', title: 'Back (menus)', y: 140 }, { id: 'pause', title: 'Pause', y: 166 }];
+  const CTL_RESET = { id: 'reset', x: 50, y: 202, w: 124, h: 16 };
   const HOME_ROWS = [
     { id: 'levels', title: 'Choose level', sub: 'Pick your industry', icon: 'levels' },
     { id: 'leaderboard', title: 'Leaderboard', sub: 'Top scores', icon: 'board' },
@@ -395,7 +395,7 @@ const UI = (() => {
       case 'title': return [homeRow(0), homeRow(1), homeRow(2), NAME_FIELD];
       case 'levels': return [0, 1, 2, 3].map(lvlCard).concat([BACK]);
       case 'howto': return [BACK, SETUP];
-      case 'controls': return g.ctlListening ? [] : CTL_ROWS.map(r => ({ id: 'row:' + r.id, x: 50, y: r.y, w: 380, h: 26 })).concat([CTL_RESET, BACK]);
+      case 'controls': return g.ctlListening ? [] : CTL_ROWS.map(r => ({ id: 'row:' + r.id, x: 50, y: r.y, w: 380, h: 24 })).concat([CTL_RESET, BACK]);
       case 'leaderboard': return g.ddOpen ? lbOptions().map((o, i) => ddRow(i)).concat([BACK]) : [BACK, Object.assign({ id: 'dd' }, DD)].concat(g.boardPages() > 1 ? [PAGE_PREV, PAGE_NEXT] : []);
       case 'complete': return g.results && g.results.mode === 'attack' ? ROUND_BTNS.map(b => ({ id: b.id, x: b.x, y: b.y, w: b.w, h: b.h })) : [];
       case 'name': return [{ id: 'confirm', x: 90, y: 176, w: 120, h: 18 }];
@@ -670,17 +670,19 @@ const UI = (() => {
     screenHeader(ctx, 'CONTROLLER', [['Set up your ', DB], ['buttons', SB]]);
     const pad = Input.pad, sel = g.ctlSel || 0, listening = g.ctlListening;
     T(ctx, pad.connected() ? 'Connected: ' + pad.name().slice(0, 52) : 'No controller found. Plug one in and press any button on it.', 50, 68, { raw: true, size: 6.6, color: pad.connected() ? '#1d8a4a' : OR, bold: true });
-    T(ctx, 'D-pad moves, jumps (up) and navigates menus. Choose a row, press Enter or X, then press the new button.', 50, 78, { raw: true, size: 6.2, color: SOFT });
+    T(ctx, 'D-pad moves, jumps (up) and navigates menus. Choose a row, press Enter or Select, then press the new button.', 50, 78, { raw: true, size: 6.2, color: SOFT });
     CTL_ROWS.forEach((r, i) => {
       const on = sel === i && !listening;
-      rr(ctx, 50, r.y, 380, 26, 8, on ? '#ffffff' : B.tint, on ? OR : null, 1.2);
-      vbar(ctx, 58, r.y + 5, 16, on ? OR : SB);
-      T(ctx, r.title, 68, r.y + 9, { bold: true, color: DB });
+      rr(ctx, 50, r.y, 380, 24, 8, on ? '#ffffff' : B.tint, on ? OR : null, 1.2);
+      vbar(ctx, 58, r.y + 4, 16, on ? OR : SB);
+      T(ctx, r.title, 68, r.y + 8, { bold: true, color: DB });
       const lab = listening === r.id ? 'Press a button...' : pad.label(r.id);
-      T(ctx, lab, 420, r.y + 9, { raw: true, align: 'right', bold: true, size: 7.2, color: listening === r.id ? OR : DB });
+      T(ctx, lab, 420, r.y + 8, { raw: true, align: 'right', bold: true, size: 7.2, color: listening === r.id ? OR : DB });
     });
-    Gfx.cta(ctx, 'Reset to defaults', CTL_RESET.x, CTL_RESET.y, CTL_RESET.w, CTL_RESET.h, sel === 3 && !listening, 0);
-    Gfx.cta(ctx, 'Back', BACK.x, BACK.y, BACK.w, BACK.h, sel === 4 && !listening, 0);
+    Gfx.cta(ctx, 'Reset to defaults', CTL_RESET.x, CTL_RESET.y, CTL_RESET.w, CTL_RESET.h, sel === 4 && !listening, 0);
+    Gfx.cta(ctx, 'Back', BACK.x, BACK.y, BACK.w, BACK.h, sel === 5 && !listening, 0);
+    const lp = pad.lastPressed();
+    T(ctx, 'Last button pressed: ' + (lp === null ? 'none yet' : 'Button ' + lp), 430, CTL_RESET.y + 4, { raw: true, align: 'right', size: 6.8, bold: true, color: SOFT });
     if (listening) T(ctx, 'Press the button you want on your controller. Esc to cancel.', 240, 222, { raw: true, align: 'center', size: 7, bold: true, color: OR });
   }
 
