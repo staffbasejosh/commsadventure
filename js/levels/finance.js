@@ -34,7 +34,7 @@
       else ch.ents.push({ type: 'trolley', variant: pick(['chair', 'chair', 'cashcart']), x: x0, range });
     },
     firstObstacle: first => first.ents.push({ type: 'trolley', variant: 'chair', x: 29, range: 1 }),
-    coinRate: 0.6,            // fewer coin trails (each coin is worth a full second here)
+    coinRate: 0.6,            // fewer coin trails
     npcScale: 0.85,           // about 15% fewer colleagues
     corridorGap: [4, 5],      // the second corridor (and the HR Manager) arrives sooner...
     postHr: { extra: 2 },     // ...and the floor gets busier after that
@@ -339,7 +339,6 @@
     id: 'finance',
     title: 'Finance',
     message: 'Score attack',
-    coinBonus: 1,    // seconds per coin (Healthcare and Manufacturing: C.ATTACK.COIN_BONUS = 0.5)
     npcScale: 0.85,  // about 15% fewer colleagues spawn during the round
     hud: C.HUD_H,    // reserved header strip (the world is drawn below it)
     rolePool: ['teller', 'guard', 'loans', 'advisor', 'cleaner', 'manager'],

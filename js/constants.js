@@ -141,10 +141,11 @@ const C = {
     SLOW_TIME: 1.0,            // union reps, patients
     HIT_GRACE: 1.4,            // no repeat hits for this long
     STOMP_BONUS: 1,            // seconds added for stomping a manager
-    COIN_BONUS: 1,             // seconds added per coin / ? block
+    COIN_BONUS: 0.5,           // seconds added per coin / ? block
     POWERUP_SCALE: 0.5,        // power-up durations are halved in this mode
     CEO_SPEED: 112,            // base speed: just under the player's run speed (118), so he keeps up but only just
     CEO_VARIATION: 4,          // +/- px/s wobble on top of that (keeps the top speed below the player's)
+    CEO_GRACE: 2,              // after ANY chaser (CEO or HR Manager) stuns you: the stun, then this many seconds when neither can touch you
     CEO_PASS_TIME: 2,          // after a catch he runs off behind you for this long and never doubles back in front of you
     CEO_STUN: 2,               // seconds you're stunned if he catches you
     CEO_CATCH_COOLDOWN: 4,     // he can't re-stun you straight away

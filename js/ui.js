@@ -388,11 +388,12 @@ const UI = (() => {
   const homeRow = i => ({ id: HOME_ROWS[i].id, x: 258, y: 28 + i * 47, w: 160, h: 42 });
   const lvlCard = i => ({ id: 'lvl' + i, x: 50 + (i % 2) * 196, y: 90 + Math.floor(i / 2) * 72, w: 184, h: 62 });
   const NAME_FIELD = { id: 'field', x: 56, y: 124, w: 172, h: 26 };
+  const SOUND_BTN = { id: 'sound', x: 56, y: 158, w: 120, h: 18 };
 
   /** Hit regions for the mouse, per screen (kept next to the drawing code so they always agree). */
   function regions(g) {
     switch (g.state) {
-      case 'title': return [homeRow(0), homeRow(1), homeRow(2), NAME_FIELD];
+      case 'title': return [homeRow(0), homeRow(1), homeRow(2), NAME_FIELD, SOUND_BTN];
       case 'levels': return [0, 1, 2, 3].map(lvlCard).concat([BACK]);
       case 'howto': return [BACK, SETUP];
       case 'controls': return g.ctlListening ? [] : CTL_ROWS.map(r => ({ id: 'row:' + r.id, x: 50, y: r.y, w: 380, h: 24 })).concat([CTL_RESET, BACK]);
@@ -598,6 +599,24 @@ const UI = (() => {
       ctx.restore();
     }
     T(ctx, ed ? 'Enter to save  ·  Esc to cancel' : (foc ? 'Enter to edit' : ''), F.x + F.w, F.y - 11, { size: 6.2, color: SOFT, align: 'right' });
+
+    // sound toggle (beneath the name box)
+    {
+      const S = SOUND_BTN, on = !Sound.isMuted(), sel = g.menuIndex === 4 && !ed;
+      rr(ctx, S.x, S.y, S.w, S.h, 9, '#ffffff', sel ? SB : B.mid, sel ? 1.6 : 1);
+      const c = on ? DB : B.gray;
+      ctx.save(); ctx.fillStyle = c; ctx.strokeStyle = c; ctx.lineWidth = 1.3; ctx.lineCap = 'round';
+      const sx = S.x + 12, sy = S.y + S.h / 2;
+      ctx.fillRect(sx - 4, sy - 2, 3, 4);                                    // speaker
+      ctx.beginPath(); ctx.moveTo(sx - 1.5, sy - 2); ctx.lineTo(sx + 2.5, sy - 5); ctx.lineTo(sx + 2.5, sy + 5); ctx.lineTo(sx - 1.5, sy + 2); ctx.closePath(); ctx.fill();
+      if (on) { ctx.beginPath(); ctx.arc(sx + 2.5, sy, 3.2, -0.9, 0.9); ctx.stroke(); ctx.beginPath(); ctx.arc(sx + 2.5, sy, 5.8, -0.9, 0.9); ctx.stroke(); }
+      else { ctx.strokeStyle = OR; ctx.beginPath(); ctx.moveTo(sx + 5, sy - 3); ctx.lineTo(sx + 10, sy + 3); ctx.moveTo(sx + 10, sy - 3); ctx.lineTo(sx + 5, sy + 3); ctx.stroke(); }
+      ctx.restore();
+      T(ctx, on ? 'Sound on' : 'Sound off', S.x + 30, S.y + 5.4, { size: 7, bold: true, color: on ? DB : SOFT });
+      // little switch
+      rr(ctx, S.x + S.w - 26, S.y + 5, 18, 8, 4, on ? B.green : B.mid);
+      ctx.beginPath(); ctx.arc(S.x + S.w - (on ? 12 : 21), S.y + 9, 3.4, 0, Math.PI * 2); ctx.fillStyle = '#ffffff'; ctx.fill();
+    }
 
     // menu
     rr(ctx, 248, 20, 180, 154, 10, B.tint);

@@ -52,7 +52,7 @@ class Level {
     this.enemies = data.entities.map(d => createEnemy(this, d));
     this.attack = data.mode === 'attack';
     this.nurse = this.attack ? { x: -999, y: -999, w: 0, h: 0, received: false, update() {}, draw() {} } : new Nurse(this, this.nurseCol);
-    this.ceo = new CEO(this); this.hr = new CEO(this, 'hr'); this.tunnelsPassed = 0; this.curTun = null; this.chaseBoost = 1;
+    this.ceo = new CEO(this); this.hr = new CEO(this, 'hr'); this.tunnelsPassed = 0; this.curTun = null; this.chaseBoost = 1; this.chaserGrace = 0;
     this.enemies.forEach(e => { /* spawn ground-snap already done in constructor */ });
     this.lastSafe = { x: this.player.x, y: this.player.y };
     this.mapW = this.cols * T; this.tunnels = [];
@@ -266,8 +266,10 @@ class Level {
     const p = this.player, g = this.g;
     if (p.power.sponsor > 0 || this.completed) return;
     if (this.attack) { // 2-second stun, then he can't re-stun you straight away
-      if (ceo.catchCd > 0 || p.stun > 0) return;
-      p.stun = C.ATTACK.CEO_STUN; ceo.catchCd = C.ATTACK.CEO_CATCH_COOLDOWN; ceo.passT = C.ATTACK.CEO_PASS_TIME;
+      if (ceo.catchCd > 0 || p.stun > 0 || this.chaserGrace > 0) return;   // one grace period shared by the CEO AND the HR Manager (no tag-teaming)
+      p.stun = C.ATTACK.CEO_STUN; ceo.catchCd = C.ATTACK.CEO_CATCH_COOLDOWN;
+      this.chaserGrace = C.ATTACK.CEO_STUN + C.ATTACK.CEO_GRACE;
+      for (const c of [this.ceo, this.hr]) c.passT = C.ATTACK.CEO_PASS_TIME;   // both back off behind you
       p.vx = (p.cx < ceo.cx ? -1 : 1) * C.PLAYER.KNOCKBACK_X; p.vy = -C.PLAYER.KNOCKBACK_Y * 0.7; p.onGround = false;
       Sound.play('hurt'); this.addPopup('STUNNED!', p.cx, p.y - 8, '#ff9f98'); ceo.speak(ceo.hr ? 'Quick check-in?' : 'Do you have a minute?', 1.8);
       return;
@@ -338,6 +340,7 @@ class Level {
     }
     for (const e of this.enemies) if (e.alive) e.update(dt);
     this.nurse.update(dt);
+    if (this.chaserGrace > 0) this.chaserGrace -= dt;
     this.ceo.update(dt); this.hr.update(dt);
     if (this.attack) Attack.update(this, dt);
     this.enemies = this.enemies.filter(e => e.alive);
@@ -611,7 +614,7 @@ const Game = {
   },
   hitAt(p) { return UI.regions(this).find(r => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h); },
   initMouse() {
-    const HOME_IDX = { levels: 0, leaderboard: 1, howto: 2, field: 3 };
+    const HOME_IDX = { levels: 0, leaderboard: 1, howto: 2, field: 3, sound: 4 };
     this.canvas.addEventListener('mousemove', e => {
       const h = this.hitAt(this.mousePos(e));
       this.canvas.style.cursor = h ? 'pointer' : 'default';
@@ -694,6 +697,7 @@ const Game = {
   },
   goLevels() { Sound.play('menu'); this.setState('levels'); this.levelIndex = 0; },
   activateHome(id) {
+    if (id === 'sound') { this.menuIndex = 4; Sound.toggleMute(); Sound.play('confirm'); return; }
     if (id === 'field') { this.menuIndex = 3; Sound.play('menu'); this.startNameEdit(); return; }
     Sound.play('confirm');
     if (id === 'levels') { this.setState('levels'); this.levelIndex = 0; }
@@ -847,9 +851,9 @@ const Game = {
       case 'title': {
         this.menuCam += dt * 30; this.sceneTime += dt; if (this.homeNoteT > 0) this.homeNoteT -= dt;
         if (this.editing) { if (Input.pressed('confirm')) this.saveNameEdit(); break; }
-        if (Input.pressed('up')) { this.menuIndex = (this.menuIndex + 3) % 4; Sound.play('menu'); }
-        if (Input.pressed('down')) { this.menuIndex = (this.menuIndex + 1) % 4; Sound.play('menu'); }
-        if (Input.pressed('confirm')) this.activateHome(['levels', 'leaderboard', 'howto', 'field'][this.menuIndex]);
+        if (Input.pressed('up')) { this.menuIndex = (this.menuIndex + 4) % 5; Sound.play('menu'); }
+        if (Input.pressed('down')) { this.menuIndex = (this.menuIndex + 1) % 5; Sound.play('menu'); }
+        if (Input.pressed('confirm')) this.activateHome(['levels', 'leaderboard', 'howto', 'field', 'sound'][this.menuIndex]);
         break;
       }
       case 'levels': {

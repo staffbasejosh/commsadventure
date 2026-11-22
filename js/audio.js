@@ -2,6 +2,7 @@
 /* audio.js - Web Audio SFX, all generated in code (no audio files). */
 const Sound = (() => {
   let ctx = null, master = null, muted = false, noiseBuf = null;
+  try { muted = localStorage.getItem('messageRun.muted') === '1'; } catch (e) { /* private mode */ }
 
   function ensure() {
     if (!ctx) {
@@ -77,7 +78,7 @@ const Sound = (() => {
   return {
     play(name) { const f = sfx[name]; if (f && !muted) { try { f(); } catch (e) { /* audio is optional */ } } },
     unlock() { ensure(); },
-    toggleMute() { muted = !muted; if (master) master.gain.value = muted ? 0 : 0.35; return muted; },
+    toggleMute() { muted = !muted; if (master) master.gain.value = muted ? 0 : 0.35; try { localStorage.setItem('messageRun.muted', muted ? '1' : '0'); } catch (e) { /* private mode */ } return muted; },
     isMuted: () => muted,
   };
 })();
