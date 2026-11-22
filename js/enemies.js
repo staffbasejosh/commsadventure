@@ -508,7 +508,7 @@ class CEO {
     this.active = false; this.x = 0; this.y = 0; this.vx = 0; this.vy = 0; this.dir = 1; this.onGround = false;
     this.state = 'idle'; this.t = 0; this.entT = 0; this.sayT = 0; this.say = null; this.tauntT = 0; this.jingleCd = 0;
     this.waiting = null; this.gapJump = false; this.stuckT = 0; this.lastX = 0; this.drainSfxT = 0; this.doorT = 0;
-    this.message = C.CEO.MESSAGES[0]; this.catchCd = 0;
+    this.message = C.CEO.MESSAGES[0]; this.catchCd = 0; this.passT = 0;
   }
   get cx() { return this.x + this.w / 2; }
   speak(text, dur = 2.2) { this.say = { text, t: dur }; }
@@ -552,6 +552,7 @@ class CEO {
     if (this.jingleCd > 0) this.jingleCd -= dt;
     if (this.drainSfxT > 0) this.drainSfxT -= dt;
     if (this.catchCd > 0) this.catchCd -= dt;
+    if (this.passT > 0) this.passT -= dt;
 
     if (L.completed) { // sulks once the nurse has the message
       this.vy = Math.min(C.MAX_FALL, this.vy + C.GRAVITY * dt); L.moveBody(this, 0, this.vy * dt, {});
@@ -568,9 +569,10 @@ class CEO {
     if (this.tauntT <= 0) { this.tauntT = rand(K.TAUNT_INTERVAL_MIN, K.TAUNT_INTERVAL_MAX); if (!this.say) this.speak(this.tauntLines[Math.floor(Math.random() * this.tauntLines.length)]); }
 
     const dist = p.x - this.x;
-    if (Math.abs(dist) > 24) this.dir = dist > 0 ? 1 : -1;
+    if (this.passT > 0) this.dir = -1;                    // just caught you: runs off BEHIND you (never doubles back in front of you)
+    else if (Math.abs(dist) > 24) this.dir = dist > 0 ? 1 : -1;
     // gradually varying speed (sine wobble) + rubber band if the player is far ahead
-    let speed = (L.attack ? (this.hr ? C.ATTACK.HR_SPEED : C.ATTACK.CEO_SPEED) * (L.chaseBoost || 1) : K.BASE_SPEED) + K.SPEED_VARIATION * Math.sin(this.t * 2 * Math.PI / K.VARIATION_PERIOD);
+    let speed = (L.attack ? (this.hr ? C.ATTACK.HR_SPEED : C.ATTACK.CEO_SPEED) * (L.chaseBoost || 1) : K.BASE_SPEED) + (L.attack ? C.ATTACK.CEO_VARIATION : K.SPEED_VARIATION) * Math.sin(this.t * 2 * Math.PI / K.VARIATION_PERIOD);
     if (Math.abs(dist) / T > K.CATCHUP_DISTANCE_TILES) speed *= K.CATCHUP_MULT;
 
     // closed barrier in front? stop and wait it out
@@ -615,7 +617,7 @@ class CEO {
     // he steals any colleague he reaches before you do
     if (L.attack) for (const n of L.enemies) if (n instanceof NPC && n.reachable && overlap(this, n, 2)) { n.steal(this.message); this.message = this.pickMessage(); }
     // caught?
-    if (!p.locked && overlap(p, this, K.CATCH_PADDING)) L.catchByCEO(dt, this);
+    if (!p.locked && this.passT <= 0 && overlap(p, this, K.CATCH_PADDING)) L.catchByCEO(dt, this);
   }
 
   draw(ctx, camX, time) {

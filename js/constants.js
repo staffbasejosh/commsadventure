@@ -121,7 +121,7 @@ const C = {
     // Chasers appear after corridors: the CEO after the first, an HR Manager after the second. Every steal re-rolls their message.
     CEO_MESSAGES: ['All Staff Update', 'Crisis Comms', 'Monthly Finance Update'],
     HR_MESSAGES: ['New Benefits', 'Welcome New Starters', 'Policy Updates'],
-    HR_SPEED: 77,              // the HR Manager is a touch slower than the CEO
+    HR_SPEED: 108,             // the HR Manager is a touch slower than the CEO
     HR_ENTRANCE: ['Got a moment?', 'Can we talk?', 'Quick check-in?'],
     HR_TAUNTS: ['Mandatory training!', 'Have you signed this?', 'Wellbeing check!', 'Please read the handbook!'],
     CHASER_AHEAD_TILES: 17,    // the CEO / HR Manager step out this far AHEAD of you (just past the screen edge) and run at you
@@ -143,7 +143,9 @@ const C = {
     STOMP_BONUS: 1,            // seconds added for stomping a manager
     COIN_BONUS: 1,             // seconds added per coin / ? block
     POWERUP_SCALE: 0.5,        // power-up durations are halved in this mode
-    CEO_SPEED: 86,             // base speed (player runs at 118)
+    CEO_SPEED: 112,            // base speed: just under the player's run speed (118), so he keeps up but only just
+    CEO_VARIATION: 4,          // +/- px/s wobble on top of that (keeps the top speed below the player's)
+    CEO_PASS_TIME: 2,          // after a catch he runs off behind you for this long and never doubles back in front of you
     CEO_STUN: 2,               // seconds you're stunned if he catches you
     CEO_CATCH_COOLDOWN: 4,     // he can't re-stun you straight away
     STOLEN_TIME: 7,            // a stolen colleague lingers this long showing the chaser's message

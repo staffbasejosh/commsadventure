@@ -267,7 +267,7 @@ class Level {
     if (p.power.sponsor > 0 || this.completed) return;
     if (this.attack) { // 2-second stun, then he can't re-stun you straight away
       if (ceo.catchCd > 0 || p.stun > 0) return;
-      p.stun = C.ATTACK.CEO_STUN; ceo.catchCd = C.ATTACK.CEO_CATCH_COOLDOWN;
+      p.stun = C.ATTACK.CEO_STUN; ceo.catchCd = C.ATTACK.CEO_CATCH_COOLDOWN; ceo.passT = C.ATTACK.CEO_PASS_TIME;
       p.vx = (p.cx < ceo.cx ? -1 : 1) * C.PLAYER.KNOCKBACK_X; p.vy = -C.PLAYER.KNOCKBACK_Y * 0.7; p.onGround = false;
       Sound.play('hurt'); this.addPopup('STUNNED!', p.cx, p.y - 8, '#ff9f98'); ceo.speak(ceo.hr ? 'Quick check-in?' : 'Do you have a minute?', 1.8);
       return;
