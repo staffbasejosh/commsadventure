@@ -52,16 +52,15 @@ const Input = (() => {
   // D-pad as buttons 12-15, as a hat switch on axis 9, or as digital axes 0/1.
   //   D-pad left/right  -> moveLeft / moveRight (menus: left/right)       (fixed)
   //   D-pad up          -> up (menus) AND jump;  D-pad down -> down        (fixed)
-  //   jump / select / pause buttons are configurable (Controller setup screen); defaults:
-  //     jump + select: "X" - the left face button on an Xbox-style pad, the bottom (cross) button on a PlayStation-style
-  //                    pad, so both are accepted; generic pads accept buttons 0-3.   pause: Start
+  //   jump / select / back / pause buttons are configurable (Controller setup screen); defaults:
+  //     jump + select: button 1 (B / Circle)   back: button 2 (X / Square)   pause: Start (button 9)
   const AXIS_DEAD = 0.5, PAD_KEY = 'messageRun.padMap', PAD_ACTIONS = ['jump', 'confirm', 'back', 'pause'];
   let padMap = {};      // action -> button index chosen by the player (absent = default)
   try { const m = JSON.parse(localStorage.getItem(PAD_KEY) || '{}'); for (const a of PAD_ACTIONS) if (Number.isInteger(m[a]) && m[a] >= 0 && m[a] < 64) padMap[a] = m[a]; } catch (e) { /* private mode / bad data */ }
   const savePadMap = () => { try { localStorage.setItem(PAD_KEY, JSON.stringify(padMap)); } catch (e) { /* private mode */ } };
   let captureCb = null, capturePrev = new Set();
   const connectedPad = () => { const l = navigator.getGamepads ? navigator.getGamepads() : []; for (const p of l) if (p && p.connected) return p; return null; };
-  const defaultButtons = (action, std, nb) => action === 'pause' ? (std || nb > 10 ? [9] : [9, 7]) : action === 'back' ? [3] : (std ? [0, 2] : [0, 1, 2]);
+  const defaultButtons = (action, std, nb) => action === 'pause' ? (std || nb > 10 ? [9] : [9, 7]) : action === 'back' ? [2] : [1];
   // A button the player has chosen for one action is never also a default for another (so Y can be "back" without also jumping).
   const buttonsFor = (action, std, nb) => {
     if (padMap[action] !== undefined) return [padMap[action]];
@@ -120,7 +119,7 @@ const Input = (() => {
     label(a) {
       const p = connectedPad(), std = !!p && p.mapping === 'standard';
       if (padMap[a] !== undefined) return 'Button ' + padMap[a] + (std && STD_NAMES[padMap[a]] ? ' (' + STD_NAMES[padMap[a]] + ')' : '');
-      return a === 'pause' ? 'Start (default)' : a === 'back' ? 'Y / Triangle (default)' : 'X (default)';
+      return a === 'pause' ? 'Start (default)' : a === 'back' ? 'X / Square (default)' : 'B / Circle (default)';
     },
     set(a, i) { padMap[a] = i; savePadMap(); },
     reset() { padMap = {}; savePadMap(); },

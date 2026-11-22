@@ -584,10 +584,10 @@ const Game = {
   },
 
   setState(s) {
-    this.state = s; this.menuTime = 0; this.editing = false;
+    this.state = s; this.menuTime = 0; this.editing = false; this.resultIdle = 0;
     Input.setTextHandler(null);
     if (s === 'title') this.menuIndex = 0;
-    Input.pad.cancelCapture(); this.ctlListening = null;
+    Input.pad.cancelCapture(); this.ctlListening = null; this.ctlPending = null;
     if (s === 'howto') this.howSel = 0;
     if (s === 'controls') this.ctlSel = 0;
     if (s === 'paused') { this.pauseSel = 0; this.pauseConfirm = false; this.confirmSel = 1; }
@@ -638,8 +638,10 @@ const Game = {
       } else if (this.state === 'paused') {
         if (h) this.pauseAction(h.id);
       } else if (this.state === 'complete') {
+        if (this.menuTime < 0.6 || this.resultIdle < 0.35) return;
         if (h && h.id === 'again') { Sound.play('confirm'); this.playAgain(); } else if (h && h.id === 'levels') this.goLevels(); else if (h && h.id === 'home') this.goHome();
       } else if (this.state === 'controls') {
+        if (this.ctlPending) { if (h && h.id === 'cyes') this.controlsConfirm(true); else if (h && h.id === 'cno') this.controlsConfirm(false); return; }
         if (h && h.id === 'back') { Sound.play('menu'); this.setState('howto'); }
         else if (h && h.id === 'reset') this.controlsAction(4);
         else if (h && h.id.startsWith('row:')) this.controlsAction(['jump', 'confirm', 'back', 'pause'].indexOf(h.id.slice(4)));
@@ -675,20 +677,25 @@ const Game = {
     if (id === 'resume' || id === 'no') {
       if (id === 'no') { this.pauseConfirm = false; Sound.play('menu'); return; }
       Sound.play('pause'); this.setState('playing');
-    } else if (id === 'end') {
+    } else if (id === 'end' || id === 'home') { this.pauseConfirm = true; this.confirmSel = 1; Sound.play('menu'); }   // both end the game, so both ask first
+    else if (id === 'yes') {                       // leaving mid-game still records the score and shows the results
       this.state = 'playing'; this.endedEarly = true;
       if (this.levelData.mode === 'attack') this.finishAttack(); else this.gameOver();
-    } else if (id === 'home') { this.pauseConfirm = true; this.confirmSel = 1; Sound.play('menu'); }
-    else if (id === 'yes') this.pauseAction('end');   // leaving mid-game still records the score and shows the results
+    }
   },
   /** Controller setup: rows 0-3 wait for a button press, 4 resets, 5 goes back. */
   controlsAction(i) {
     const acts = ['jump', 'confirm', 'back', 'pause'];
     if (i <= 3) {
       this.ctlListening = acts[i]; Sound.play('menu');
-      Input.pad.capture(idx => { Input.pad.set(acts[i], idx); this.ctlListening = null; Sound.play('confirm'); });
+      Input.pad.capture(idx => { this.ctlListening = null; this.ctlPending = { action: acts[i], idx }; this.ctlConfirmSel = 0; Sound.play('menu'); });   // asks "are you sure?" before saving
     } else if (i === 4) { Input.pad.reset(); Sound.play('pause'); }
     else { Sound.play('menu'); this.setState('howto'); }
+  },
+  /** Answer the "use this button?" question on the controller setup screen. */
+  controlsConfirm(yes) {
+    const p = this.ctlPending; this.ctlPending = null;
+    if (yes && p) { Input.pad.set(p.action, p.idx); Sound.play('confirm'); } else Sound.play('menu');
   },
   goHome() { Sound.play('menu'); this.setState('title'); },
   introAction(id) {
@@ -870,6 +877,12 @@ const Game = {
       }
       case 'controls':
         this.menuCam += dt * 30;
+        if (this.ctlPending) {
+          if (Input.pressed('moveLeft') || Input.pressed('moveRight') || Input.pressed('up') || Input.pressed('down')) { this.ctlConfirmSel = 1 - this.ctlConfirmSel; Sound.play('menu'); }
+          else if (Input.pressed('confirm')) this.controlsConfirm(this.ctlConfirmSel === 0);
+          else if (Input.pressed('pause')) this.controlsConfirm(false);
+          break;
+        }
         if (this.ctlListening) { if (Input.pressed('pause')) { Input.pad.cancelCapture(); this.ctlListening = null; Sound.play('menu'); } break; }
         if (Input.pressed('up')) { this.ctlSel = (this.ctlSel + 5) % 6; Sound.play('menu'); }
         else if (Input.pressed('down')) { this.ctlSel = (this.ctlSel + 1) % 6; Sound.play('menu'); }
@@ -932,6 +945,12 @@ const Game = {
         else if (Input.pressed('pause')) this.setState('title');
         break;
       case 'complete':
+        {   // buttons mashed (jump / X doubles as confirm) as the clock hits zero must not skip the results:
+            // wait a moment AND until the player has let go of jump / confirm / pause for a beat
+          const ready = this.menuTime >= 1.0 && this.resultIdle >= 0.35;
+          if (Input.down('confirm') || Input.down('jump') || Input.down('pause')) this.resultIdle = 0; else this.resultIdle += dt;
+          if (!ready) break;
+        }
         if (this.results && this.results.mode === 'attack') {
           if (Input.pressed('moveLeft')) { this.completeSel = (this.completeSel + 2) % 3; Sound.play('menu'); }
           else if (Input.pressed('moveRight')) { this.completeSel = (this.completeSel + 1) % 3; Sound.play('menu'); }

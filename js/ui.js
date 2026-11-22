@@ -379,6 +379,7 @@ const UI = (() => {
   const BACK = { id: 'back', x: 50, y: 234, w: 92, h: 16 };
   const SETUP = { id: 'setup', x: 152, y: 234, w: 124, h: 16 };
   const CTL_ROWS = [{ id: 'jump', title: 'Jump', y: 88 }, { id: 'confirm', title: 'Select (menus)', y: 114 }, { id: 'back', title: 'Back (menus)', y: 140 }, { id: 'pause', title: 'Pause', y: 166 }];
+  const CTL_CONFIRM = [{ id: 'cyes', x: 168, y: 142, w: 144, h: 18, label: 'Yes, use it' }, { id: 'cno', x: 168, y: 164, w: 144, h: 18, label: 'No, pick again' }];
   const CTL_RESET = { id: 'reset', x: 50, y: 202, w: 124, h: 16 };
   const HOME_ROWS = [
     { id: 'levels', title: 'Choose level', sub: 'Pick your industry', icon: 'levels' },
@@ -396,7 +397,7 @@ const UI = (() => {
       case 'title': return [homeRow(0), homeRow(1), homeRow(2), NAME_FIELD, SOUND_BTN];
       case 'levels': return [0, 1, 2, 3].map(lvlCard).concat([BACK]);
       case 'howto': return [BACK, SETUP];
-      case 'controls': return g.ctlListening ? [] : CTL_ROWS.map(r => ({ id: 'row:' + r.id, x: 50, y: r.y, w: 380, h: 24 })).concat([CTL_RESET, BACK]);
+      case 'controls': return g.ctlPending ? CTL_CONFIRM.map(b => ({ id: b.id, x: b.x, y: b.y, w: b.w, h: b.h })) : g.ctlListening ? [] : CTL_ROWS.map(r => ({ id: 'row:' + r.id, x: 50, y: r.y, w: 380, h: 24 })).concat([CTL_RESET, BACK]);
       case 'leaderboard': return g.ddOpen ? lbOptions().map((o, i) => ddRow(i)).concat([BACK]) : [BACK, Object.assign({ id: 'dd' }, DD)].concat(g.boardPages() > 1 ? [PAGE_PREV, PAGE_NEXT] : []);
       case 'complete': return g.results && g.results.mode === 'attack' ? ROUND_BTNS.map(b => ({ id: b.id, x: b.x, y: b.y, w: b.w, h: b.h })) : [];
       case 'name': return [{ id: 'confirm', x: 90, y: 176, w: 120, h: 18 }];
@@ -702,6 +703,16 @@ const UI = (() => {
     Gfx.cta(ctx, 'Back', BACK.x, BACK.y, BACK.w, BACK.h, sel === 5 && !listening, 0);
     const lp = pad.lastPressed();
     T(ctx, 'Last button pressed: ' + (lp === null ? 'none yet' : 'Button ' + lp), 430, CTL_RESET.y + 4, { raw: true, align: 'right', size: 6.8, bold: true, color: SOFT });
+    if (g.ctlPending) {
+      const pn = g.ctlPending, names = { jump: 'Jump', confirm: 'Select', back: 'Back', pause: 'Pause' };
+      darkWash(ctx, 0.55);
+      Gfx.card(ctx, 150, 76, 180, 126);
+      T(ctx, 'Are you sure?', 168, 92, { scale: 3, size: 20, color: DB });
+      T(ctx, 'Set ' + names[pn.action] + ' to Button ' + pn.idx + '?', 168, 120, { size: 7.4, bold: true, color: DB });
+      T(ctx, 'It replaces the current button.', 168, 130, { size: 7, color: SOFT });
+      const nudge = Math.round(Math.sin(g.menuTime * 6) * 1.2 + 1);
+      CTL_CONFIRM.forEach((b, i) => Gfx.cta(ctx, b.label, b.x, b.y, b.w, b.h, i === (g.ctlConfirmSel || 0), i === (g.ctlConfirmSel || 0) ? nudge : 0));
+    }
     if (listening) T(ctx, 'Press the button you want on your controller. Esc to cancel.', 240, 222, { raw: true, align: 'center', size: 7, bold: true, color: OR });
   }
 
@@ -973,7 +984,7 @@ const UI = (() => {
     T(ctx, g.pauseConfirm ? 'Are you sure?' : 'Paused', 168, 92, { scale: 3, size: 20, color: DB });
     const sel = g.pauseSel || 0, nudge = Math.round(Math.sin(g.menuTime * 6) * 1.2 + 1);
     if (g.pauseConfirm) {
-      T(ctx, 'Leaving ends this game.', 168, 120, { size: 7.4, color: SOFT });
+      T(ctx, 'This ends the game.', 168, 120, { size: 7.4, color: SOFT });
       T(ctx, 'Your score will be saved.', 168, 130, { size: 7.4, bold: true, color: DB });
       CONFIRM_BTNS.forEach((b, i) => Gfx.cta(ctx, b.label, b.x, b.y, b.w, b.h, i === (g.confirmSel || 0), i === (g.confirmSel || 0) ? nudge : 0));
     } else {
