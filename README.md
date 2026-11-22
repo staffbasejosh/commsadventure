@@ -22,7 +22,9 @@ handover. Managers, pickets, patients and a CEO carrying a *different* message a
 
 ## Controller support
 
-Plug in a USB (or Bluetooth) gamepad and press any button once so the browser notices it. D-pad left/right moves, D-pad up jumps (and moves up in menus), D-pad down crouches (and moves down in menus), **X** jumps and confirms, **Start** pauses (and goes back in menus). On an Xbox-style pad X is the left face button and on a PlayStation-style pad it is the cross button; both work, and generic pads accept face buttons 0-3. If the D-pad is reported as a hat switch or as axes 0/1 that is handled too. The mapping lives in `padSource` in `js/input.js`. Browser audio still unlocks only on a key press or click, so tap a key or click the page once if the game is silent.
+Plug in a USB (or Bluetooth) gamepad and press any button once so the browser notices it. The D-pad is fixed: left/right moves, up jumps (and moves up in menus), down crouches (and moves down in menus). Three buttons are configurable: **Jump**, **Select** (menus) and **Pause / back**. By default Jump and Select are X (the left face button on an Xbox-style pad, the cross on a PlayStation-style pad; generic pads accept face buttons 0-3) and Pause is Start.
+
+To change them open **How to play > Controller setup**, pick a row (D-pad and X, or the mouse), then press the button you want. Choices are saved in the browser (`messageRun.padMap`) and **Reset to defaults** clears them. If the D-pad is reported as a hat switch or as axes 0/1 that is handled too. The mapping code is `padSource` and `Input.pad` in `js/input.js`; the screen is `controls` in `js/ui.js`. Browser audio still unlocks only on a key press or click, so tap a key or click the page once if the game is silent.
 
 ## How to play
 

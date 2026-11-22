@@ -584,6 +584,9 @@ const Game = {
     this.state = s; this.menuTime = 0; this.editing = false;
     Input.setTextHandler(null);
     if (s === 'title') this.menuIndex = 0;
+    Input.pad.cancelCapture(); this.ctlListening = null;
+    if (s === 'howto') this.howSel = 0;
+    if (s === 'controls') this.ctlSel = 0;
     if (s === 'paused') { this.pauseSel = 0; this.pauseConfirm = false; this.confirmSel = 1; }
   },
 
@@ -633,6 +636,11 @@ const Game = {
         if (h) this.pauseAction(h.id);
       } else if (this.state === 'complete') {
         if (h && h.id === 'again') { Sound.play('confirm'); this.playAgain(); } else if (h && h.id === 'levels') this.goLevels(); else if (h && h.id === 'home') this.goHome();
+      } else if (this.state === 'controls') {
+        if (h && h.id === 'back') { Sound.play('menu'); this.setState('howto'); }
+        else if (h && h.id === 'reset') this.controlsAction(3);
+        else if (h && h.id.startsWith('row:')) this.controlsAction(['jump', 'confirm', 'pause'].indexOf(h.id.slice(4)));
+      } else if (this.state === 'howto' && h && h.id === 'setup') { Sound.play('confirm'); this.setState('controls');
       } else if (this.state === 'howto' || this.state === 'leaderboard') {
         if (h && h.id === 'back') this.goHome();
         else if (this.state === 'leaderboard') {
@@ -669,6 +677,15 @@ const Game = {
       if (this.levelData.mode === 'attack') this.finishAttack(); else this.gameOver();
     } else if (id === 'home') { this.pauseConfirm = true; this.confirmSel = 1; Sound.play('menu'); }
     else if (id === 'yes') this.pauseAction('end');   // leaving mid-game still records the score and shows the results
+  },
+  /** Controller setup: rows 0-2 wait for a button press, 3 resets, 4 goes back. */
+  controlsAction(i) {
+    const acts = ['jump', 'confirm', 'pause'];
+    if (i <= 2) {
+      this.ctlListening = acts[i]; Sound.play('menu');
+      Input.pad.capture(idx => { Input.pad.set(acts[i], idx); this.ctlListening = null; Sound.play('confirm'); });
+    } else if (i === 3) { Input.pad.reset(); Sound.play('pause'); }
+    else { Sound.play('menu'); this.setState('howto'); }
   },
   goHome() { Sound.play('menu'); this.setState('title'); },
   introAction(id) {
@@ -846,8 +863,23 @@ const Game = {
         else if (Input.pressed('pause')) this.goHome();
         break;
       }
+      case 'controls':
+        this.menuCam += dt * 30;
+        if (this.ctlListening) { if (Input.pressed('pause')) { Input.pad.cancelCapture(); this.ctlListening = null; Sound.play('menu'); } break; }
+        if (Input.pressed('up')) { this.ctlSel = (this.ctlSel + 4) % 5; Sound.play('menu'); }
+        else if (Input.pressed('down')) { this.ctlSel = (this.ctlSel + 1) % 5; Sound.play('menu'); }
+        else if (Input.pressed('confirm')) this.controlsAction(this.ctlSel);
+        else if (Input.pressed('pause')) { Sound.play('menu'); this.setState('howto'); }
+        break;
       case 'howto': case 'leaderboard':
         this.menuCam += dt * 30;
+        if (this.state === 'howto') {
+          if (Input.pressed('moveLeft')) { this.howSel = 0; Sound.play('menu'); }
+          else if (Input.pressed('moveRight')) { this.howSel = 1; Sound.play('menu'); }
+          else if (Input.pressed('confirm')) { if (this.howSel === 1) { Sound.play('confirm'); this.setState('controls'); } else this.goHome(); }
+          else if (Input.pressed('pause')) this.goHome();
+          break;
+        }
         if (this.state === 'leaderboard') {
           if (!this.ddOpen) {
             if (Input.pressed('moveRight') || Input.pressed('down')) this.turnPage(1);
@@ -946,6 +978,7 @@ const Game = {
       case 'title': UI.title(ctx, this); break;
       case 'levels': UI.levels(ctx, this); break;
       case 'howto': UI.howto(ctx, this); break;
+      case 'controls': UI.controls(ctx, this); break;
       case 'leaderboard': UI.leaderboard(ctx, this); break;
       case 'intro': this.drawWorld(ctx); UI.intro(ctx, this); break;
       case 'playing': this.drawWorld(ctx); UI.hud(ctx, this); break;

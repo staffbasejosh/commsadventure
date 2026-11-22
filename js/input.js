@@ -50,12 +50,19 @@ const Input = (() => {
 
   // ---- USB / Bluetooth gamepad (Gamepad API). Works with "standard" pads and with generic ones that report the
   // D-pad as buttons 12-15, as a hat switch on axis 9, or as digital axes 0/1.
-  //   D-pad left/right  -> moveLeft / moveRight (menus: left/right)
-  //   D-pad up          -> up (menus) AND jump;  D-pad down -> down (crouch / menus)
-  //   X                 -> jump AND confirm.  "X" is the left face button on an Xbox-style pad and the bottom (cross)
-  //                        button on a PlayStation-style pad, so both are accepted; generic pads accept buttons 0-3.
-  //   Start             -> pause
-  const AXIS_DEAD = 0.5;
+  //   D-pad left/right  -> moveLeft / moveRight (menus: left/right)       (fixed)
+  //   D-pad up          -> up (menus) AND jump;  D-pad down -> down        (fixed)
+  //   jump / select / pause buttons are configurable (Controller setup screen); defaults:
+  //     jump + select: "X" - the left face button on an Xbox-style pad, the bottom (cross) button on a PlayStation-style
+  //                    pad, so both are accepted; generic pads accept buttons 0-3.   pause: Start
+  const AXIS_DEAD = 0.5, PAD_KEY = 'messageRun.padMap', PAD_ACTIONS = ['jump', 'confirm', 'pause'];
+  let padMap = {};      // action -> button index chosen by the player (absent = default)
+  try { const m = JSON.parse(localStorage.getItem(PAD_KEY) || '{}'); for (const a of PAD_ACTIONS) if (Number.isInteger(m[a]) && m[a] >= 0 && m[a] < 64) padMap[a] = m[a]; } catch (e) { /* private mode / bad data */ }
+  const savePadMap = () => { try { localStorage.setItem(PAD_KEY, JSON.stringify(padMap)); } catch (e) { /* private mode */ } };
+  let captureCb = null, capturePrev = new Set();
+  const connectedPad = () => { const l = navigator.getGamepads ? navigator.getGamepads() : []; for (const p of l) if (p && p.connected) return p; return null; };
+  const defaultButtons = (action, std, nb) => action === 'pause' ? (std || nb > 10 ? [9] : [9, 7]) : (std ? [0, 2] : [0, 1, 2, 3]);
+  const buttonsFor = (action, std, nb) => padMap[action] !== undefined ? [padMap[action]] : defaultButtons(action, std, nb);
   function padSource() {
     const out = {};
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
@@ -63,6 +70,15 @@ const Input = (() => {
       if (!p || !p.connected) continue;
       const std = p.mapping === 'standard';
       const b = i => !!(p.buttons[i] && p.buttons[i].pressed);
+      if (captureCb) {                                   // "press the button you want to use": swallow all pad input meanwhile
+        const dpadBtns = p.buttons.length > 15 ? [12, 13, 14, 15] : [];
+        for (let i = 0; i < p.buttons.length; i++) {
+          if (!b(i)) { capturePrev.delete(i); continue; }
+          if (capturePrev.has(i) || dpadBtns.includes(i)) continue;
+          const cb = captureCb; captureCb = null; cb(i); return out;
+        }
+        continue;
+      }
       let U = false, D = false, L = false, R = false;
       if (p.buttons.length > 15) { U = b(12); D = b(13); L = b(14); R = b(15); }
       if (!std) {
@@ -77,17 +93,40 @@ const Input = (() => {
         if (p.axes[0] < -AXIS_DEAD) L = true; if (p.axes[0] > AXIS_DEAD) R = true;   // D-pad reported as axes 0 / 1
         if (p.axes[1] < -AXIS_DEAD) U = true; if (p.axes[1] > AXIS_DEAD) D = true;
       }
-      const X = std ? b(0) || b(2) : b(0) || b(1) || b(2) || b(3);
-      const start = b(9) || (!std && p.buttons.length <= 10 && b(7));
+      const nb = p.buttons.length;
       if (L) out.moveLeft = true;
       if (R) out.moveRight = true;
       if (U) { out.up = true; out.jump = true; }
       if (D) out.down = true;
-      if (X) { out.jump = true; out.confirm = true; }
-      if (start) out.pause = true;
+      if (buttonsFor('jump', std, nb).some(b)) out.jump = true;
+      if (buttonsFor('confirm', std, nb).some(b)) out.confirm = true;
+      if (buttonsFor('pause', std, nb).some(b)) out.pause = true;
     }
     return out;
   }
+  const STD_NAMES = ['A / Cross', 'B / Circle', 'X / Square', 'Y / Triangle', 'LB', 'RB', 'LT', 'RT', 'Back', 'Start', 'L-stick', 'R-stick'];
+  const padApi = {
+    /** Chosen button index for an action, or null while it uses the default. */
+    chosen: a => padMap[a] !== undefined ? padMap[a] : null,
+    /** Readable name of the button(s) an action uses right now ("Button 3", or the defaults). */
+    label(a) {
+      const p = connectedPad(), std = !!p && p.mapping === 'standard';
+      if (padMap[a] !== undefined) return 'Button ' + padMap[a] + (std && STD_NAMES[padMap[a]] ? ' (' + STD_NAMES[padMap[a]] + ')' : '');
+      return a === 'pause' ? 'Start (default)' : 'X (default)';
+    },
+    set(a, i) { padMap[a] = i; savePadMap(); },
+    reset() { padMap = {}; savePadMap(); },
+    connected: () => !!connectedPad(),
+    name: () => { const p = connectedPad(); return p ? p.id : ''; },
+    /** Wait for the next button press on any controller and hand its index to cb (the held buttons are ignored). */
+    capture(cb) {
+      capturePrev = new Set();
+      const p = connectedPad(); if (p) for (let i = 0; i < p.buttons.length; i++) if (p.buttons[i] && p.buttons[i].pressed) capturePrev.add(i);
+      captureCb = cb;
+    },
+    cancelCapture() { captureCb = null; },
+    capturing: () => !!captureCb,
+  };
   window.addEventListener('gamepadconnected', e => console.info('Controller connected:', e.gamepad.id, '(mapping: ' + (e.gamepad.mapping || 'non-standard') + ')'));
 
   const api = {
@@ -104,6 +143,8 @@ const Input = (() => {
     pressed: a => !!latchDown[a] || (cur[a] && !prev[a]),
     released: a => !!latchUp[a] || (!cur[a] && prev[a]),
     addSource(fn) { sources.push(fn); },
+    /** Gamepad button mapping (Controller setup screen). */
+    pad: null,
     /** While set, raw keydown events (with e.key) are routed to fn (name entry). */
     setTextHandler(fn) { textHandler = fn; },
     /** Test hook: simulate a held action (used by the autopilot bot). */
@@ -111,5 +152,6 @@ const Input = (() => {
   };
   api.addSource(() => api._force);
   api.addSource(padSource);
+  api.pad = padApi;
   return api;
 })();
