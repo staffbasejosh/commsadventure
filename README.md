@@ -20,6 +20,10 @@ Finance and Transport are placeholders.
 You are an internal Communications employee (you choose the name). A message must reach the nurse in Ward 4 before shift
 handover. Managers, pickets, patients and a CEO carrying a *different* message are in the way.
 
+## Controller support
+
+Plug in a USB (or Bluetooth) gamepad and press any button once so the browser notices it. D-pad left/right moves, D-pad up jumps (and moves up in menus), D-pad down crouches (and moves down in menus), **X** jumps and confirms, **Start** pauses (and goes back in menus). On an Xbox-style pad X is the left face button and on a PlayStation-style pad it is the cross button; both work, and generic pads accept face buttons 0-3. If the D-pad is reported as a hat switch or as axes 0/1 that is handled too. The mapping lives in `padSource` in `js/input.js`. Browser audio still unlocks only on a key press or click, so tap a key or click the page once if the game is silent.
+
 ## How to play
 
 | Key | Action |
